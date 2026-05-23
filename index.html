@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NTUC Regression Test Runner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f7f7f5;--bg3:#f0efe9;
+  --text:#1a1a1a;--text2:#5a5a5a;--text3:#9a9a9a;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--border3:rgba(0,0,0,0.28);
+  --radius:8px;--radius-lg:12px;
+  --pass:#1a7a4a;--pass-bg:#eaf7f0;--pass-border:rgba(26,122,74,0.25);
+  --fail:#c0392b;--fail-bg:#fceaea;--fail-border:rgba(192,57,43,0.25);
+  --blocked:#b07800;--blocked-bg:#fff8e1;--blocked-border:rgba(176,120,0,0.25);
+  --skip:#888;--skip-bg:#f5f5f5;
+  --accent:#1a1a1a;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1e1e1c;--bg2:#262624;--bg3:#2e2e2b;
+    --text:#e8e8e2;--text2:#a8a8a0;--text3:#686860;
+    --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);--border3:rgba(255,255,255,0.28);
+    --pass:#2ecc71;--pass-bg:rgba(46,204,113,0.12);--pass-border:rgba(46,204,113,0.3);
+    --fail:#e74c3c;--fail-bg:rgba(231,76,60,0.12);--fail-border:rgba(231,76,60,0.3);
+    --blocked:#f39c12;--blocked-bg:rgba(243,156,18,0.12);--blocked-border:rgba(243,156,18,0.3);
+    --skip:#666;--skip-bg:rgba(255,255,255,0.05);
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg3);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+
+/* Sidebar */
+.sidebar{background:var(--bg2);border-right:0.5px solid var(--border);padding:0;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.sidebar-header{padding:16px 16px 12px;border-bottom:0.5px solid var(--border)}
+.sidebar-header h1{font-size:13px;font-weight:600;letter-spacing:-0.2px}
+.sidebar-header p{font-size:11px;color:var(--text2);margin-top:2px}
+.sidebar-sections{padding:8px 0;flex:1}
+.sec-item{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;transition:background 0.12s;gap:8px}
+.sec-item:hover{background:var(--bg3)}
+.sec-item.active{background:var(--accent);color:#fff}
+.sec-item.active .sec-count{color:rgba(255,255,255,0.6)}
+.sec-name{font-size:13px;font-weight:500}
+.sec-count{font-size:11px;color:var(--text3)}
+.sec-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-fail{background:var(--fail)}
+.dot-pass{background:var(--pass)}
+.dot-empty{background:var(--border2)}
+.sidebar-bottom{padding:12px 16px;border-top:0.5px solid var(--border)}
+.sidebar-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mini-stat{background:var(--bg3);border-radius:var(--radius);padding:8px;text-align:center}
+.mini-stat-val{font-size:18px;font-weight:600}
+.mini-stat-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px}
+.val-pass{color:var(--pass)}
+.val-fail{color:var(--fail)}
+.val-blocked{color:var(--blocked)}
+
+/* Main */
+.main{display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--bg);border-bottom:0.5px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-size:15px;font-weight:600}
+.env-select{font-size:12px;padding:5px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);cursor:pointer}
+.tester-input{font-size:12px;padding:5px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:140px}
+.tester-input::placeholder{color:var(--text3)}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.progress-wrap{flex:1;max-width:200px;margin:0 16px}
+.prog-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s}
+.prog-label{font-size:11px;color:var(--text2);margin-top:3px;text-align:right}
+
+/* Buttons */
+.btn{font-size:12px;padding:7px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.12s;font-family:inherit;white-space:nowrap}
+.btn:hover{background:var(--bg2)}
+.btn:active{transform:scale(0.98)}
+.btn-dark{background:var(--accent);color:var(--bg);border-color:transparent}
+.btn-dark:hover{opacity:0.85;background:var(--accent)}
+.btn-pass-btn{background:var(--pass-bg);color:var(--pass);border-color:var(--pass-border)}
+.btn-pass-btn:hover{filter:brightness(0.95)}
+.btn-fail-btn{background:var(--fail-bg);color:var(--fail);border-color:var(--fail-border)}
+.btn-fail-btn:hover{filter:brightness(0.95)}
+.btn-blocked-btn{background:var(--blocked-bg);color:var(--blocked);border-color:var(--blocked-border)}
+.btn-blocked-btn:hover{filter:brightness(0.95)}
+.btn-skip-btn{background:var(--skip-bg);color:var(--skip);border-color:var(--border)}
+.btn-sm{font-size:11px;padding:4px 10px}
+
+/* Content area */
+.content{padding:24px;flex:1}
+.view-tabs{display:flex;gap:0;border-bottom:0.5px solid var(--border);margin-bottom:20px}
+.vtab{font-size:13px;padding:8px 16px;border-bottom:2px solid transparent;cursor:pointer;color:var(--text2);transition:all 0.12s;margin-bottom:-1px}
+.vtab:hover{color:var(--text)}
+.vtab.active{color:var(--text);border-bottom-color:var(--accent)}
+
+/* Test case cards */
+.tc-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden;transition:border-color 0.15s}
+.tc-card.current-card{border-color:var(--border3);box-shadow:0 0 0 2px rgba(0,0,0,0.06)}
+.tc-card.result-pass{border-left:3px solid var(--pass)}
+.tc-card.result-fail{border-left:3px solid var(--fail)}
+.tc-card.result-blocked{border-left:3px solid var(--blocked)}
+.tc-card.result-skip{opacity:0.55}
+.tc-card-header{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px;cursor:pointer;gap:12px}
+.tc-id-badge{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:3px}
+.tc-scenario{font-size:14px;font-weight:500;line-height:1.4}
+.tc-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.status-pill{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500}
+.pill-pass{background:var(--pass-bg);color:var(--pass)}
+.pill-fail{background:var(--fail-bg);color:var(--fail)}
+.pill-blocked{background:var(--blocked-bg);color:var(--blocked)}
+.pill-skip{background:var(--skip-bg);color:var(--skip)}
+.pill-pending{background:var(--bg2);color:var(--text3)}
+.bug-pill{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,150,50,0.12);color:#b05000;border:0.5px solid rgba(176,80,0,0.2)}
+.slow-pill{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--blocked-bg);color:var(--blocked)}
+.chevron{font-size:12px;color:var(--text3);transition:transform 0.15s}
+.chevron.open{transform:rotate(180deg)}
+.tc-body{padding:0 16px 16px;border-top:0.5px solid var(--border)}
+.tc-data-box{font-size:12px;color:var(--text2);padding:8px 10px;background:var(--bg2);border-radius:var(--radius);margin:12px 0 10px}
+.tc-data-box strong{color:var(--text);font-weight:500}
+.steps-ol{font-size:13px;color:var(--text2);padding-left:18px;margin-bottom:10px;line-height:1.75}
+.steps-ol li{margin-bottom:1px}
+.expected-box{font-size:13px;padding:9px 12px;background:rgba(26,122,74,0.06);border-radius:var(--radius);border-left:2px solid var(--pass);margin-bottom:12px;line-height:1.5}
+.expected-box .label{font-size:10px;font-weight:600;color:var(--pass);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:3px}
+.bug-box{font-size:12px;padding:7px 10px;background:rgba(255,150,50,0.08);border-radius:var(--radius);margin-bottom:10px;color:#b05000;border:0.5px solid rgba(176,80,0,0.15)}
+.action-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.reset-btn{margin-left:auto}
+.note-textarea{width:100%;font-size:12px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);resize:vertical;min-height:56px;font-family:inherit;transition:border-color 0.12s}
+.note-textarea:focus{outline:none;border-color:var(--border3)}
+
+/* Nav */
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.nav-counter{font-size:13px;color:var(--text2)}
+
+/* Webhook validator */
+.validator-panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-top:16px}
+.validator-panel h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.validator-panel p{font-size:12px;color:var(--text2);margin-bottom:14px}
+.validator-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field-group{margin-bottom:12px}
+.field-group label{font-size:11px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px}
+.webhook-textarea{width:100%;font-size:12px;padding:10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);resize:vertical;height:280px;font-family:monospace;transition:border-color 0.12s}
+.webhook-textarea:focus{outline:none;border-color:var(--border3)}
+.val-select{font-size:12px;padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:100%;cursor:pointer;font-family:inherit}
+.validate-btn{margin-top:8px}
+.val-results{margin-top:14px}
+.val-result-item{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-radius:var(--radius);margin-bottom:5px;font-size:12px}
+.vri-pass{background:var(--pass-bg)}
+.vri-fail{background:var(--fail-bg)}
+.vri-warn{background:var(--blocked-bg)}
+.vri-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.vri-label{font-weight:500;margin-right:4px}
+.vri-val{color:var(--text2)}
+.val-summary{font-size:13px;font-weight:500;padding:10px 12px;border-radius:var(--radius);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.vs-pass{background:var(--pass-bg);color:var(--pass)}
+.vs-fail{background:var(--fail-bg);color:var(--fail)}
+
+/* Expected result checkboxes */
+.expected-checks{margin-bottom:12px}
+.expected-checks .label{font-size:10px;font-weight:600;color:var(--pass);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:6px}
+.check-item{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;border-radius:var(--radius);margin-bottom:3px;cursor:pointer;transition:background 0.1s;font-size:13px;color:var(--text2);line-height:1.4;background:rgba(26,122,74,0.04);border:0.5px solid rgba(26,122,74,0.1)}
+.check-item:hover{background:rgba(26,122,74,0.09)}
+.check-item.checked{background:rgba(26,122,74,0.1);color:var(--text);text-decoration:none}
+.check-item.checked .check-text{color:var(--text)}
+.check-box{width:15px;height:15px;border:1.5px solid var(--pass-border);border-radius:3px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all 0.12s;background:var(--bg)}
+.check-item.checked .check-box{background:var(--pass);border-color:var(--pass)}
+.check-tick{color:#fff;font-size:10px;font-weight:700;display:none}
+.check-item.checked .check-tick{display:block}
+.check-text{flex:1}
+.checks-progress{font-size:11px;color:var(--text3);margin-top:4px;margin-bottom:2px}
+.webhook-checks{margin-top:8px;padding-top:8px;border-top:0.5px dashed var(--border)}
+
+/* Report modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-box{background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border2);width:min(680px,100%);max-height:85vh;overflow:hidden;display:flex;flex-direction:column}
+.modal-header{padding:16px 20px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h2{font-size:15px;font-weight:600}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-footer{padding:12px 20px;border-top:0.5px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.report-pre{font-family:monospace;font-size:12px;white-space:pre-wrap;background:var(--bg2);padding:14px;border-radius:var(--radius);line-height:1.65;word-break:break-word}
+.overall-pill{display:inline-block;font-size:13px;font-weight:600;padding:8px 16px;border-radius:var(--radius);margin-bottom:12px}
+.op-ready{background:var(--pass-bg);color:var(--pass)}
+.op-issues{background:var(--blocked-bg);color:var(--blocked)}
+.op-blocked{background:var(--fail-bg);color:var(--fail)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:0.35}
+.empty-state h3{font-size:15px;font-weight:500;margin-bottom:6px;color:var(--text)}
+.empty-state p{font-size:13px}
+
+/* Section done banner */
+.done-banner{background:var(--pass-bg);border:0.5px solid var(--pass-border);border-radius:var(--radius-lg);padding:20px;text-align:center;margin-bottom:16px}
+.done-banner h3{color:var(--pass);font-size:15px;font-weight:600;margin-bottom:4px}
+.done-banner p{font-size:13px;color:var(--text2)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+@media(max-width:700px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{height:auto;position:relative}
+  .validator-layout{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>🛡️ NTUC Regression</h1>
+      <p>Pre-deployment test suite</p>
+    </div>
+    <nav class="sidebar-sections" id="sidebar-nav"></nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-stats" id="sidebar-stats"></div>
+      <button class="btn btn-dark" style="width:100%;margin-top:10px;justify-content:center" onclick="openReport()">📄 Generate Report</button>
+      <button class="btn" style="width:100%;margin-top:6px;justify-content:center;color:var(--fail);border-color:var(--fail-border)" onclick="confirmNewRun()">🔄 New Run</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title" id="topbar-title">PayNow</span>
+        <select class="env-select" id="env-select">
+          <option value="Dev">Dev</option>
+          <option value="Stage">Stage</option>
+          <option value="Prod">Prod</option>
+          <option value="Dev + Stage">Dev + Stage</option>
+          <option value="All Environments">All Environments</option>
+        </select>
+        <input class="tester-input" id="tester-input" type="text" placeholder="Tester name…" />
+      </div>
+      <div class="topbar-right">
+        <span id="save-indicator" style="font-size:11px;color:var(--pass);opacity:0;transition:opacity 0.3s;margin-right:4px">✓ saved</span>
+        <div class="progress-wrap">
+          <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+          <div class="prog-label" id="prog-label">0 / 0</div>
+        </div>
+        <button class="btn btn-dark" onclick="openReport()">📄 Report</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="view-tabs">
+        <div class="vtab active" id="tab-run" onclick="setView('run')">▶ Run</div>
+        <div class="vtab" id="tab-all" onclick="setView('all')">☰ All Cases</div>
+        <div class="vtab" id="tab-webhook" onclick="setView('webhook')">🔗 Webhook Validator</div>
+      </div>
+      <div id="main-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-overlay" id="report-modal" style="display:none" onclick="if(event.target===this)closeReport()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>📄 Run Report</h2>
+      <button class="btn btn-sm" onclick="closeReport()">✕ Close</button>
+    </div>
+    <div class="modal-body">
+      <div id="overall-pill-container"></div>
+      <div class="report-pre" id="report-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="copyReport()">📋 Copy</button>
+      <button class="btn btn-dark" onclick="downloadReport()">⬇ Download .txt</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEST_DATA = {
+  sections: [
+    { id:"paynow", name:"ACME PayNow", short:"PayNow",
+      cases:[
+        {id:"PN-W1",scenario:"Successful one-time payment",data:"OneTime=True, Valid Amount, UEN(SUCCESS): 000000001",steps:["Set ACME credentials on PortOne admin with Success simulation UEN (000000001)","Click Pay → redirected to PortOne checkout","Click QR CODE","Payment succeeds → PortOne success page shown","Banner with timer + manual redirect option visible","Timer hits 0 → auto-redirect to NTUC page"],expected:"Payment is successful|Redirected to success page|Dashboard: transaction status = Success",webhook:"Webhook received|OneTimePaymentStatus = Success|ErrorCode is empty",cbType:"paynow_success"},
+        {id:"PN-W2",scenario:"Failed one-time payment",data:"OneTime=True, Valid Amount, UEN(FAILED): 000000002",steps:["Set credentials with Failed simulation UEN (000000002)","Click Pay → checkout → click QR CODE → failure page","Failure reason displayed","Banner + timer → auto-redirect"],expected:"Payment failed|Failure page shown|Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed|ErrorCode = 4000",cbType:"paynow_fail"},
+        {id:"PN-W3",scenario:"Invalid amount (decimal)",data:"OneTime=True, Invalid decimal amount (e.g. 2.3)",steps:["Click Pay → checkout","Click QR CODE → failure page","Failure reason displayed","Banner + timer → auto-redirect"],expected:"Payment failed|Failure page shown|Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed|ErrorCode = 5000",cbType:"paynow_invalid"},
+        {id:"PN-W4",scenario:"Payment link expiry",data:"OneTime=True, Valid Amount, UEN: 000000003",steps:["Set non-success/failure UEN (e.g. 000000003)","Click Pay → checkout → click QR CODE","QR loads in ~2 seconds","Wait 20+ minutes for expiry callback"],expected:"Callback received|OneTimePaymentStatus = Cancelled",webhook:"Webhook received (wait 20+ min)|OneTimePaymentStatus = Cancelled|ErrorCode = 4072",slow:true,cbType:"paynow_expire"},
+        {id:"PN-W5",cbType:"paynow_success",scenario:"Retry payment on same link",data:"OneTime=True, UEN SUCCESS: 000000001, FAILED: 000000002",steps:["Set Failed UEN → open checkout","Duplicate tab (2nd tab open)","Click QR CODE in 2nd tab → failure page","Switch to Success UEN on admin","Click QR CODE on original tab → success","Callback: Success"],expected:"Payment link accepts multiple attempts|Final successful attempt marked as Success|Callback status = Success",webhook:"Webhook received|OneTimePaymentStatus = Success"},
+        {id:"PN-W6",cbType:"paynow_fail",scenario:"Zero amount single payment",data:"OneTime=True, Amount=0",steps:["Click PayNow with amount 0","Should redirect to failure page"],expected:"Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed"},
+        {id:"PN-W7",cbType:"paynow_success",scenario:"Same link in two browsers",data:"OneTime=True, Valid Amount, UEN: 000000001",steps:["Set non-success UEN → open same link in 2 browsers","Browser 1: click QR CODE → success","Browser 2: click QR CODE"],expected:"Browser 1: payment captured successfully|Browser 2: popup shown|Popup message: A Successful Payment has been captured using this link",webhook:"Webhook received once (not twice)|OneTimePaymentStatus = Success"},
+        {id:"PN-W8",scenario:"Payment on cancelled link",data:"OneTime=True, Valid Amount",steps:["Open already-cancelled link → attempt payment"],expected:"Error message shown on checkout|Message: payment link has been cancelled|No payment methods shown"},
+        {id:"PN-W9",scenario:"No expiry callback after success",data:"OneTime=True, Valid Amount",steps:["Non-success UEN → 2 tabs → switch to Success UEN → pay in tab 1 → callback: Success","Verify: NO expiry/failure callback arrives afterward"],expected:"Payment marked Success|Callback status = Success received|No expiry or failure callback arrives afterward"},
+        {id:"PN-W10",scenario:"Success callback after expired link",data:"OneTime=True, Valid Amount",steps:["Non-success UEN → 2 tabs → wait for expiry callback","Switch to Success UEN → pay → callback: Success"],expected:"Prior expiry callback received|Payment subsequently succeeds|Success callback received"},
+        {id:"PN-W11",cbType:"paynow_success",scenario:"Browser closed after success",data:"OneTime=True, Valid Amount",steps:["Click Pay → checkout → click QR CODE","Close browser before redirect","Payment processes successfully"],expected:"Payment marked Success|Callback status = Success",webhook:"Webhook received|OneTimePaymentStatus = Success"},
+        {id:"PN-W12",cbType:"paynow_fail",scenario:"Browser closed after failure",data:"OneTime=True, Valid Amount",steps:["Click Pay → checkout → click QR CODE","Close browser before redirect","Payment fails"],expected:"Payment marked Failed|Callback status = Failed",webhook:"Webhook received|OneTimePaymentStatus = Failed"},
+        {id:"PN-CB1",scenario:"[Callback] Success — verify webhook fields",data:"OneTime=True, Valid Amount",steps:["Complete successful payment","Check webhook received","Verify: ClientOrderId, PGOrderId, OneTimePaymentMethod=PAYNOW, OneTimePaymentStatus=Success, OrderAmount","Wait 25+ min → verify repeat webhook arrives"],expected:"All required callback fields present|Repeat webhook after 25+ min",cbType:"paynow_success"},
+        {id:"PN-CB2",scenario:"[Callback] Failure — verify webhook fields",data:"OneTime=True, Valid Amount",steps:["Complete failed payment","Check webhook: OneTimePaymentStatus=Failed, ErrorCode=4000, ErrorDescription='4000 | Payment Failed'"],expected:"All failure webhook fields present|ErrorCode present|ErrorDescription present",cbType:"paynow_fail"},
+        {id:"PN-CB3",scenario:"[Callback] Invalid amount — webhook fields",data:"OneTime=True, Invalid decimal amount",steps:["Make payment with decimal amount","Check webhook: ErrorCode=5000, ErrorDescription contains 'numeric value out of bounds'"],expected:"ErrorCode = 5000|ErrorDescription contains numeric value out of bounds",cbType:"paynow_invalid"},
+        {id:"PN-CB4",scenario:"[Callback] Expiry — webhook fields",data:"OneTime=True, Valid Amount",steps:["Let link expire","Check webhook: OneTimePaymentStatus=Cancelled, ErrorCode=4072, ErrorDescription='Transaction expired'"],expected:"OneTimePaymentStatus = Cancelled|ErrorCode = 4072",cbType:"paynow_expire"}
+      ]
+    },
+    { id:"egiro", name:"eGIRO", short:"eGIRO",
+      cases:[
+        {id:"EG-A1",scenario:"Recurring only (0-amount) — success",cbType:"egiro_success",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Success001",steps:["Click Pay → checkout → initial deduction shows 0","Enter name, select bank, click Pay","Select DDA final status: Success","Subscription success page → banner + timer → auto-redirect"],expected:"Subscription created successfully|Subscription status = Active in Dashboard|Redirected to success page",webhook:"Webhook received|RecurringPaymentStatus = Success|Token present (not empty)|OrderAmount = 0"},
+        {id:"EG-A2",scenario:"Recurring only with amount specified (still 0 deduction)",cbType:"egiro_success",data:"Recurring=true, OneTime=false, Amount=20, DDARef=Success002",steps:["Click Pay → checkout → verify initial deduction still shows 0","Complete with DDA Success"],expected:"Initial deduction shown as 0 on checkout|Subscription created successfully|Subscription status = Active",webhook:"Webhook received|RecurringPaymentStatus = Success|OrderAmount = 0"},
+        {id:"EG-A3",scenario:"Recurring subscription fails",cbType:"egiro_fail",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Failure001",steps:["Click Pay → checkout","Select DDA Failure + appropriate reason","Failure page shown → banner + timer → auto-redirect"],expected:"Failure page shown with reason|Redirected to failure page",webhook:"Webhook received|RecurringPaymentStatus = Failed|ErrorCode present"},
+        {id:"EG-A4",cbType:"egiro_fail",scenario:"Cannot retry after failure",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Failure002",steps:["Go through checkout → DDA Failure","On failure page → click Browser Back → try DDA Success"],expected:"Browser back does not reinitiate payment|Subscription status = Cancelled in Dashboard",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"EG-A5",cbType:"egiro_success",scenario:"Same link in two browsers",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Success003",steps:["Open same link in 2 browsers","Complete successfully in Browser 1","Try to pay in Browser 2"],expected:"Browser 1: subscription created successfully|Browser 2: alert shown|Alert: subscription is already active",webhook:"Webhook received once only|RecurringPaymentStatus = Success"},
+        {id:"EG-A6",scenario:"Payment on cancelled link",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Failure003",steps:["Open already-cancelled link → enter name, bank, click Pay"],expected:"Error message shown on checkout|Error: Subscription cannot be started|Reason: subscription status is Cancelled"},
+        {id:"EG-A7",scenario:"Transaction expiry (15-20 min wait)",cbType:"egiro_expire",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Failure004",steps:["Click Pay → checkout → enter name + bank → click Pay","Do NOT submit DDA status","Wait 15-20 minutes → transaction expires → redirected to failure page"],expected:"Failure page + error: PAYER_AUTHORIZATION_TIMEOUT | The payment was failed due to the payer's authorization timeout.",webhook:"Webhook received (wait 15-20 min)|RecurringPaymentStatus = Failed|ErrorCode = 4072",slow:true},
+        {id:"EG-A8",scenario:"Browser closed after success",cbType:"egiro_success",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Success004",steps:["Complete with Success DDA","Close browser before redirect"],expected:"Subscription success|Callback: OneTime = Success|Callback: Recurring = Success",webhook:"Webhook received|RecurringPaymentStatus = Success|Token present"},
+        {id:"EG-A9",scenario:"Browser closed after failure",cbType:"egiro_fail",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Failure005",steps:["Complete with Failure DDA, close browser before redirect"],expected:"Subscription failed|Callback received|Callback: RecurringPaymentStatus = Failed",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"EG-A10",scenario:"Pending authorization across tabs",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Pending001",steps:["Open checkout in 2 browsers","Browser 1: DDA Pending Authorisation → pending page","Browser 2: enter name/bank → DDA Success or Failure → complete","Both browsers should show updated status"],expected:"Payment completed in Browser 2|Browser 1 auto-updates status|Final status matches: both show Success or Failed",webhook:"Webhook received|Status matches final DDA selection (Success or Failed)"},
+        {id:"EG-B1",scenario:"Recurring + OneTime — success",cbType:"egiro_both_success",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Success001",steps:["Click Pay → initial deduction shows 100","Enter name, bank, click Pay → DDA Success","Subscription success → redirect"],expected:"Subscription created successfully|Initial deduction = 100 on checkout|Subscription status = Active in Dashboard",webhook:"Webhook received|OneTimePaymentStatus = Success|RecurringPaymentStatus = Success|Token present|OrderAmount = 100"},
+        {id:"EG-B2",scenario:"Recurring + OneTime — fails",cbType:"egiro_both_fail",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure001",steps:["Click Pay → checkout → DDA Failure"],expected:"Failure page shown with reason|Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed"},
+        {id:"EG-B3",cbType:"egiro_both_fail",scenario:"Cannot retry after Recurring+OneTime failure",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure002",steps:["Fail via DDA Failure → try browser back → attempt Success"],expected:"Browser back does not reinitiate payment|Subscription status = Cancelled in Dashboard",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"EG-B4",cbType:"egiro_both_fail",scenario:"Recurring + OneTime — Amount=0 (both true)",data:"Recurring=true, OneTime=true, Amount=0, DDARef=Failure002",steps:["Click Pay button with amount 0","Should be redirected to failure page","Verify error message displayed"],expected:"Redirected to failure page|Error message shown|Error: orderAmount is 0, but both isOneTimePayment and isRecurringPayment are true",webhook:"Webhook received|RecurringPaymentStatus = Failed|Error: orderAmount is 0"},
+        {id:"EG-B5",cbType:"egiro_both_fail",scenario:"Cannot retry after Recurring+OneTime failure (DDARef=Failure003)",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure003",steps:["Click Pay → checkout → DDA Failure","On failure page → click Browser Back → try DDA Success"],expected:"Browser back does not reinitiate payment|Subscription status = Cancelled in Dashboard",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"EG-B6",cbType:"egiro_both_success",scenario:"Same link in two browsers (Recurring+OneTime)",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Success002",steps:["Open same link in 2 browsers","Browser 1: complete with DDA Success","Browser 2: try to pay"],expected:"Browser 1: subscription created successfully|Browser 2: alert shown|Alert: subscription is already active",webhook:"Webhook received once only|RecurringPaymentStatus = Success"},
+        {id:"EG-B7",scenario:"Payment on cancelled link (Recurring+OneTime)",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure004",steps:["Open already-cancelled link → enter name, bank, click Pay"],expected:"Error message shown on checkout|Error: Subscription cannot be started|Reason: subscription status is Cancelled"},
+        {id:"EG-B8",scenario:"Transaction expiry (Recurring+OneTime, 15-20 min)",cbType:"egiro_both_expire",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure005",steps:["Click Pay → checkout → enter name + bank → click Pay","Do NOT submit DDA status","Wait 15-20 minutes → transaction expires"],expected:"Failure page + error: PAYER_AUTHORIZATION_TIMEOUT | The payment was failed due to the payer's authorization timeout.",webhook:"Webhook received (wait 15-20 min)|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed|ErrorCode = 4072",slow:true},
+        {id:"EG-B9",scenario:"Browser closed after success (Recurring+OneTime)",cbType:"egiro_both_success",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Success003",steps:["Complete with Success DDA","Close browser before redirect"],expected:"Subscription success|Callback: OneTime = Success|Callback: Recurring = Success",webhook:"Webhook received|OneTimePaymentStatus = Success|RecurringPaymentStatus = Success"},
+        {id:"EG-B10",scenario:"Browser closed after failure (Recurring+OneTime)",cbType:"egiro_both_fail",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure006",steps:["Complete with Failure DDA, close browser before redirect"],expected:"Subscription failed|Callback: OneTimePaymentStatus = Failed|Callback: RecurringPaymentStatus = Failed",webhook:"Webhook received|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed"},
+        {id:"EG-B11",scenario:"Pending authorization across tabs (Recurring+OneTime)",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Pending002",steps:["Open checkout in 2 browsers","Browser 1: DDA Pending Authorisation → pending page","Browser 2: enter name/bank → DDA Success or Failure → complete","Both browsers should show updated status"],expected:"Payment completed in Browser 2|Browser 1 auto-updates status|Final status matches: both show Success or Failed",webhook:"Webhook received|Status matches final DDA selection"},
+        {id:"EG-CB1",scenario:"[Callback] Recurring only — success webhook fields",cbType:"egiro_success",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Success001",steps:["Complete successful recurring transaction","Verify webhook: RecurringPaymentMethod=EGIRO, RecurringPaymentStatus=Success, Token present, OrderAmount=0","Verify RecurringAcctName, RecurringAcctNo, RecurringDDARefNo, RecurringBankCode, RecurringBranchCode","Wait 25+ min → verify repeat webhook arrives"],expected:"All recurring webhook fields present|Token present (not empty)|Repeat webhook after 25+ min"},
+        {id:"EG-CB2",scenario:"[Callback] Recurring only — failure webhook fields",cbType:"egiro_fail",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Failure001",steps:["Complete failed recurring transaction","Verify webhook: RecurringPaymentStatus=Failed, ErrorCode=4080, ErrorDescription contains PAYER_REJECTED_AUTHORIZATION","Verify RecurringAcctName, RecurringAcctNo, RecurringBankCode present"],expected:"All failure fields present|ErrorCode = 4080"},
+        {id:"EG-CB3",scenario:"[Callback] Recurring only — expiry webhook fields",cbType:"egiro_expire",data:"Recurring=true, OneTime=false, Amount=0, DDARef=Expire001",steps:["Let recurring transaction expire","Verify webhook: RecurringPaymentStatus=Failed, ErrorCode=4072, ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT"],expected:"Expiry fields present|ErrorCode = 4072",slow:true},
+        {id:"EG-CB4",scenario:"[Callback] Recurring only — missing DDARef webhook fields",cbType:"egiro_no_dda",data:"Recurring=true, OneTime=false, Amount=0, DDARef=(empty)",steps:["Make recurring transaction without DDARef","Verify webhook: RecurringPaymentStatus=Failed, ErrorCode=4001, ErrorDescription=4001 | DDARef is missing","Verify Token is empty"],expected:"ErrorCode = 4001|ErrorDescription: DDARef is missing"},
+        {id:"EG-CB5",scenario:"[Callback] Recurring+OneTime — success webhook fields",cbType:"egiro_both_success",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Success002",steps:["Complete successful Recurring+OneTime transaction","Verify webhook: OneTimePaymentMethod=FASTCOL, OneTimePaymentStatus=Success, RecurringPaymentMethod=EGIRO, RecurringPaymentStatus=Success, Token present, OrderAmount=100","Verify all OneTime and Recurring account fields present","Wait 25+ min → verify repeat webhook"],expected:"All OneTime and Recurring fields present|Token present (not empty)"},
+        {id:"EG-CB6",scenario:"[Callback] Recurring+OneTime — failure webhook fields",cbType:"egiro_both_fail",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Failure002",steps:["Complete failed Recurring+OneTime transaction","Verify webhook: OneTimePaymentStatus=Failed, RecurringPaymentStatus=Failed, ErrorCode=4080, ErrorDescription contains PAYER_DID_NOT_COMPLETE_AUTHORIZATION"],expected:"OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed|ErrorCode = 4080"},
+        {id:"EG-CB7",scenario:"[Callback] Recurring+OneTime — expiry webhook fields",cbType:"egiro_both_expire",data:"Recurring=true, OneTime=true, Amount=100, DDARef=Expire002",steps:["Let Recurring+OneTime transaction expire","Verify webhook: OneTimePaymentStatus=Failed, RecurringPaymentStatus=Failed, ErrorCode=4072, ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT"],expected:"OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed|ErrorCode = 4072",slow:true},
+        {id:"EG-CB8",scenario:"[Callback] Recurring+OneTime — missing DDARef webhook fields",cbType:"egiro_no_dda",data:"Recurring=true, OneTime=true, Amount=100, DDARef=(empty)",steps:["Make Recurring+OneTime transaction without DDARef","Verify webhook: RecurringPaymentStatus=Failed, ErrorCode=4001, ErrorDescription=4001 | DDARef is missing","Verify Token is empty"],expected:"ErrorCode = 4001|ErrorDescription: DDARef is missing|Token is empty"},
+        {id:"EG-MAGIC",scenario:"⚡ Magic Number: Amount=72",cbType:"egiro_magic",data:"Recurring=true, OneTime=true, Amount=72",steps:["Set amount to exactly 72","Complete payment flow","Check success page for error message","Check redirect page: OneTimePaymentStatus=Failed, RecurringPaymentStatus=Success","Check Dashboard: subscription Active","In subscription details: transaction for amount 72 has status Failed"],expected:"Success page shows an error message|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Success|Dashboard: Subscription is Active|Transaction for amount 72 has status Failed",webhook:"Webhook received|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Success|Token present"}
+      ]
+    },
+    { id:"mpgs", name:"MPGS", short:"MPGS",
+      cases:[
+        {id:"MP-W1",scenario:"Successful payment (3DS pass)",data:"OneTime=true, Valid Amount",steps:["Click PayNow → checkout","Enter valid MPGS card → click PayNow","Complete 3DS authentication (success)","Success page → banner + timer → auto-redirect","Verify RetrieveOrder API status"],expected:"Payment is successful|Redirected to success page|Dashboard: transaction status = Success",webhook:"Webhook received|OneTimePaymentStatus = Success|ErrorCode is empty",cbType:"mpgs_success"},
+        {id:"MP-W2",scenario:"3DS failure",data:"OneTime=true, Valid Amount",steps:["Enter valid card → do NOT authenticate (3DS failure) → click Submit","Failure page + reason shown → banner + auto-redirect","Verify RetrieveOrder API"],expected:"Failure page shown with reason|Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed|ErrorCode = 8004",cbType:"mpgs_fail"},
+        {id:"MP-W3",cbType:"mpgs_fail",scenario:"Invalid card",data:"OneTime=true, Card: 30123400000000",steps:["Enter invalid card 30123400000000 → click PayNow","Failure page + reason shown → auto-redirect","Verify RetrieveOrder API"],expected:"Failure page shown with reason|Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed|ErrorCode present"},
+        {id:"MP-W4",cbType:"mpgs_fail",scenario:"Cannot retry after failure",data:"OneTime=true, Valid Amount",steps:["Fail payment (3DS failure)","On failure page → click Browser Back → try to reinitiate"],expected:"Failure page shown|Message: Payment link is cancelled|No payment methods available to retry",webhook:"Webhook received|OneTimePaymentStatus = Failed"},
+        {id:"MP-W5",cbType:"mpgs_fail",scenario:"Zero amount",data:"OneTime=true, Amount=0",steps:["Click PayNow with amount 0"],expected:"Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed"},
+        {id:"MP-W6",cbType:"mpgs_success",scenario:"Same link in two browsers (concurrent)",data:"OneTime=true, Valid Amount",steps:["Open same link in 2 browsers","Browser 1: enter card → PayNow → redirected to 3DS","Browser 2: enter card → PayNow (should error — active transaction)","Complete 3DS in Browser 1 → success","Verify RetrieveOrder API"],expected:"Browser 1: payment captured successfully|Browser 2: active transaction error shown|Verify Dashboard: only one transaction recorded",webhook:"Webhook received once only|OneTimePaymentStatus = Success",knownBug:"RetrieveOrder API shows 'Failed' even though transaction is Success"},
+        {id:"MP-W7",cbType:"mpgs_success",scenario:"Same link two browsers (1st completes first)",data:"OneTime=true, Valid Amount",steps:["Browser 1: complete payment successfully","Browser 2: try to pay"],expected:"Browser 1: payment completed|Browser 2: alert shown|Alert: payment has already been captured",webhook:"Webhook received once only|OneTimePaymentStatus = Success"},
+        {id:"MP-W8",scenario:"Payment on cancelled link",data:"OneTime=true, Valid Amount",steps:["Open already-cancelled link → enter card → click PayNow"],expected:"Error message shown|Error: payment link has been cancelled|No card entry accepted"},
+        {id:"MP-W9",scenario:"3DS after transaction expired",data:"OneTime=true, Valid Amount",steps:["Enter card → let transaction expire","Try to complete 3DS authentication after expiry"],expected:"3DS authentication page shown|Transaction expired|Known bug: no redirect occurs after 3DS on expired transaction",knownBug:"No redirect after completing 3DS on an expired transaction"},
+        {id:"MP-W10",cbType:"mpgs_success",scenario:"Browser closed after success",data:"OneTime=true, Valid Amount",steps:["Complete payment (3DS success)","Close browser before redirect"],expected:"Payment status = Success in Dashboard|Callback received|Callback status = success",webhook:"Webhook received|OneTimePaymentStatus = Success"},
+        {id:"MP-W11",cbType:"mpgs_fail",scenario:"Browser closed after failure",data:"OneTime=true, Valid Amount",steps:["Fail 3DS → close browser before redirect"],expected:"Payment status = Failed in Dashboard|Callback received|Callback status = Failed",webhook:"Webhook received|OneTimePaymentStatus = Failed"},
+        {id:"MP-R1",cbType:"mpgs_recurring_success",scenario:"[Recurring] Recurring only — success",data:"Recurring=true, OneTime=false, Amount=0",steps:["Enter card → 3DS success → subscription success → redirect","Verify RetrieveOrder API"],expected:"Subscription created successfully|Initial deduction = 0 on checkout|Subscription status = Active in Dashboard",webhook:"Webhook received|RecurringPaymentStatus = Success|Token present|OrderAmount = 0"},
+        {id:"MP-R2",cbType:"mpgs_recurring_success",scenario:"[Recurring] Recurring only with amount",data:"Recurring=true, OneTime=false, Amount=20",steps:["Click PayNow → verify initial deduction still shows 0","Complete with 3DS success"],expected:"Initial deduction shown as 0 on checkout|Subscription created successfully",webhook:"Webhook received|RecurringPaymentStatus = Success|OrderAmount = 0"},
+        {id:"MP-R3",cbType:"mpgs_fail",scenario:"[Recurring] Subscription fails",data:"Recurring=true, OneTime=false, Amount=0",steps:["Enter card → make 3DS fail"],expected:"Failure page shown with reason|Redirected to failure page",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"MP-R4",cbType:"mpgs_fail",scenario:"[Recurring] Cannot retry after failure",data:"Recurring=true, OneTime=false, Amount=0",steps:["Fail → browser back → attempt again"],expected:"Error shown: subscription is Cancelled|No payment accepted",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"MP-R5",cbType:"mpgs_recurring_success",scenario:"[Recurring] Same link two browsers",data:"Recurring=true, OneTime=false, Amount=0",steps:["Browser 1 succeeds → Browser 2 tries to pay"],expected:"Browser 1: subscription created successfully|Browser 2: payment failed alert shown|Alert: subscription is already active",webhook:"Webhook received once only|RecurringPaymentStatus = Success"},
+        {id:"MP-R6",scenario:"[Recurring] Cancelled link",data:"Recurring=true, OneTime=false, Amount=0",steps:["Open cancelled link → try to pay"],expected:"Error message shown|Error: Subscription cannot be started|Reason: subscription status is Cancelled"},
+        {id:"MP-R7",scenario:"[Recurring] Browser closed after success",data:"Recurring=true, OneTime=false, Amount=0",steps:["Complete 3DS success → close browser"],expected:"Subscription created successfully|Callback received|Callback status = Success"},
+        {id:"MP-R8",cbType:"mpgs_recurring_success",scenario:"[Recurring] Browser closed after failure",data:"Recurring=true, OneTime=false, Amount=0",steps:["Fail 3DS → close browser"],expected:"Callback received|Callback status = Failed",webhook:"Webhook received|RecurringPaymentStatus = Success"},
+        {id:"MP-RB1",scenario:"[Recurring+OneTime] Success — initial deduction = amount",data:"Recurring=true, OneTime=true, Amount=100",steps:["Click PayNow → checkout","Verify initial deduction shows 100","Enter valid MPGS card → PayNow","Complete 3DS auth success","Subscription success → redirect"],expected:"Subscription created successfully|Initial deduction = 100 on checkout|Subscription status = Active in Dashboard",webhook:"Webhook received|OneTimePaymentStatus = Success|RecurringPaymentStatus = Success|Token present|OrderAmount = 100",cbType:"mpgs_both_success"},
+        {id:"MP-RB2",cbType:"mpgs_fail",scenario:"[Recurring+OneTime] Failure — invalid card",data:"Recurring=true, OneTime=true, Amount=100, Card=30123400000000",steps:["Click PayNow → checkout","Enter invalid card 30123400000000 → PayNow","User redirected to subscription failure page","Banner + timer → auto-redirect"],expected:"Failure page shown with reason|Redirected to failure page",webhook:"Webhook received|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed"},
+        {id:"MP-RB3",cbType:"mpgs_fail",scenario:"[Recurring+OneTime] Amount=0 error",data:"Recurring=true, OneTime=true, Amount=0",steps:["Click PayNow with amount 0","Should be redirected to failure page with error"],expected:"Redirected to failure page|Error message shown|Error: orderAmount is 0, but both isOneTimePayment and isRecurringPayment are true",webhook:"Webhook received|RecurringPaymentStatus = Failed|Error: orderAmount is 0"},
+        {id:"MP-RB4",cbType:"mpgs_fail",scenario:"[Recurring+OneTime] Cannot retry after failure",data:"Recurring=true, OneTime=true, Amount=100",steps:["Enter card → make 3DS fail","On failure page → click Browser Back → try to reinitiate"],expected:"Browser back does not reinitiate payment|Subscription status = Cancelled in Dashboard",webhook:"Webhook received|RecurringPaymentStatus = Failed"},
+        {id:"MP-RB5",cbType:"mpgs_both_success",scenario:"[Recurring+OneTime] Same link two browsers",data:"Recurring=true, OneTime=true, Amount=100",steps:["Browser 1: complete successfully","Browser 2: try to pay"],expected:"Browser 1: subscription created successfully|Browser 2: payment failed alert shown|Alert: subscription is already active",webhook:"Webhook received once only|RecurringPaymentStatus = Success"},
+        {id:"MP-RB6",scenario:"[Recurring+OneTime] Cancelled link",data:"Recurring=true, OneTime=true, Amount=100",steps:["Open cancelled link → enter card → click PayNow"],expected:"Error message shown|Error: Subscription cannot be started|Reason: subscription status is Cancelled"},
+        {id:"MP-RB7",scenario:"[Recurring+OneTime] 3DS after expired",data:"Recurring=true, OneTime=true, Amount=100",steps:["Enter card → let transaction expire","Try to complete 3DS after expiry"],expected:"3DS authentication page shown|Transaction expired|Known bug: no redirect occurs after 3DS on expired transaction",knownBug:"No redirect after completing 3DS on an expired transaction"},
+        {id:"MP-RB8",scenario:"[Recurring+OneTime] Browser closed after success",data:"Recurring=true, OneTime=true, Amount=100",steps:["Complete 3DS success → close browser before redirect"],expected:"Subscription created successfully|Callback received|Callback status = Success",webhook:"Webhook received|OneTimePaymentStatus = Success|RecurringPaymentStatus = Success",cbType:"mpgs_both_success"},
+        {id:"MP-RB9",cbType:"mpgs_fail",scenario:"[Recurring+OneTime] Browser closed after failure",data:"Recurring=true, OneTime=true, Amount=100",steps:["Make 3DS fail → close browser before redirect"],expected:"Subscription failed, callback = Failed",webhook:"Webhook received|OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed"},
+        {id:"MP-CB1",scenario:"[Callback] Single payment — success webhook fields",data:"OneTime=true, Recurring=false, Valid Amount",steps:["Complete successful single payment","Verify webhook: ClientOrderId, PGOrderId, OneTimeMerchantId, OneTimePaymentMethod=CARDPAYMENT, OneTimeCardExpiryDate, OneTimeCardType, OneTimePaymentStatus=Success, OrderAmount","ErrorCode and ErrorDescription empty","Wait 10+ min → verify repeat webhook"],expected:"All required webhook fields present|Token is empty (single payment)|Repeat webhook after 10+ min",cbType:"mpgs_success"},
+        {id:"MP-CB2",scenario:"[Callback] Single payment — failure webhook fields",data:"OneTime=true, Recurring=false, Valid Amount",steps:["Complete failed single payment (3DS fail)","Verify webhook: OneTimePaymentStatus=Failed, ErrorCode=8004, ErrorDescription contains BLOCKED"],expected:"All failure fields present|ErrorCode = 8004",cbType:"mpgs_fail"},
+        {id:"MP-CB3",scenario:"[Callback] Recurring only — success webhook fields",data:"Recurring=true, OneTime=false, Amount=0",steps:["Complete successful recurring transaction","Verify webhook: RecurringMerchantId, RecurringPaymentMethod=CARDPAYMENT, RecurringCardType, RecurringPaymentStatus=Success, Token present, OrderAmount=0"],expected:"All recurring fields present|Token = tokenized card number (not empty)",cbType:"mpgs_recurring_success"},
+        {id:"MP-CB4",scenario:"[Callback] Recurring only — failure webhook fields",data:"Recurring=true, OneTime=false, Amount=0",steps:["Complete failed recurring transaction","Verify webhook: RecurringPaymentStatus=Failed, ErrorCode=4000"],expected:"All failure fields present|ErrorCode = 4000",cbType:"mpgs_fail"},
+        {id:"MP-CB5",scenario:"[Callback] Recurring+OneTime — success webhook fields",data:"Recurring=true, OneTime=true, Amount=100",steps:["Complete successful Recurring+OneTime transaction","Verify webhook: OneTimeMerchantId, OneTimePaymentMethod=CARDPAYMENT, OneTimePaymentStatus=Success, RecurringMerchantId, RecurringPaymentMethod=CARDPAYMENT, RecurringPaymentStatus=Success, Token present, OrderAmount=100"],expected:"All OneTime and Recurring fields present|Token = tokenized card (not empty)",cbType:"mpgs_both_success"},
+        {id:"MP-CB6",scenario:"[Callback] Recurring+OneTime — failure webhook fields",data:"Recurring=true, OneTime=true, Amount=100",steps:["Complete failed Recurring+OneTime transaction","Verify webhook: OneTimePaymentStatus=Failed, RecurringPaymentStatus=Failed, ErrorCode=8004"],expected:"OneTimePaymentStatus = Failed|RecurringPaymentStatus = Failed|ErrorCode = 8004",cbType:"mpgs_fail"},
+        {id:"MP-API1",scenario:"[API] RetrieveOrder — valid ClientOrderID",data:"GET /api/uatntuc/RetrieveOrder/UP/{validClientOrderID}",steps:["Send GET request with valid clientOrderID"],expected:"HTTP 200 response|ClientOrderId present|OneTimePaymentStatus present|OrderAmount present"},
+        {id:"MP-API2",scenario:"[API] RetrieveOrder — invalid ClientOrderID",data:"GET /api/uatntuc/RetrieveOrder/UP/invalidClientOrderID",steps:["Send GET request with invalid ID"],expected:"HTTP error response|ErrorCode = 4001|ErrorDescription = Client Order ID not found"},
+        {id:"MP-API3",scenario:"[API] RetrieveOrder — missing AppID",data:"GET /api/uatntuc/RetrieveOrder//clientOrderID (double slash)",steps:["Send GET request without AppID"],expected:'HTTP 400 — {"error":{"message":"appId is required in URL params"}}'}
+      ]
+    },
+    { id:"audit", name:"Audit Trail", short:"Audit",
+      cases:[
+        {id:"AT-L1",scenario:"Successful login audit log",data:"Valid email + valid password",steps:["Log in with valid credentials","Open Audit Log in sidebar","Find LOGIN_SUCCESS entry","Click Details button","Verify JSON payload"],expected:"Type = LOGIN_SUCCESS|Severity = MEDIUM|Details: immutable_flag = true|Details: ip_address present|Details: user_agent present"},
+        {id:"AT-L2",scenario:"Failed login audit log",data:"Valid email + wrong password",steps:["Attempt login with wrong password","Login with correct password","Open Audit Log → find LOGIN_FAILED entry"],expected:"Type = LOGIN_FAILED|Severity = HIGH|Details: failure_reason = Wrong password"},
+        {id:"AT-C1",scenario:"Add payment channel credentials",data:"Logged into valid account",steps:["Payment Channels → select channel → Manage Keys → Add credentials","Check Audit Log"],expected:"Type = CREDENTIALS_ADDED|Severity = HIGH|Description contains credentials added for [Channel]|Details: immutable_flag = true"},
+        {id:"AT-C2",scenario:"Update payment channel credentials",data:"Logged into valid account",steps:["Manage Keys → Update credentials","Check Audit Log"],expected:"Type = CREDENTIALS_UPDATED|Severity = HIGH|Details: immutable_flag = true|Details: credentials_updated = true"},
+        {id:"AT-C3",scenario:"Enable payment method",data:"Logged into valid account",steps:["Enable a payment method","Check Audit Log"],expected:"Type = PAYMENT_METHOD_UPDATED|Details: after_state is_default = true|Details: immutable_flag = true"},
+        {id:"AT-C4",scenario:"Disable payment method",data:"Logged into valid account",steps:["Disable a payment method","Check Audit Log"],expected:"Type = PAYMENT_METHOD_UPDATED|Details: after_state is_default = false|Details: immutable_flag = true"},
+        {id:"AT-T1",scenario:"Invite sub-user",data:"Logged into valid account",steps:["Settings → Teams → Invite user","Check Audit Log"],expected:"Type = SUB_USER_INVITED|Description: New sub-user invited for merchant [name]|Details: immutable_flag = true"},
+        {id:"AT-T2",scenario:"Resend sub-user invite",data:"Logged into valid account",steps:["Resend invitation","Check Audit Log"],expected:"Type = SUB_USER_INVITE_RESENT|Details: immutable_flag = true"},
+        {id:"AT-T3",scenario:"Update sub-user role",data:"Logged into valid account",steps:["Change sub-user role","Check Audit Log"],expected:"Type = SUB_USER_ROLE_UPDATED|Details: before_state shows old role|Details: after_state shows new role|Details: immutable_flag = true"},
+        {id:"AT-T4",scenario:"Deactivate sub-user",data:"Logged into valid account",steps:["Deactivate a sub-user","Check Audit Log"],expected:"Type = SUB_USER_STATUS_UPDATED|Details: new_status = INACTIVE|Details: immutable_flag = true"},
+        {id:"AT-T5",scenario:"Activate sub-user",data:"Logged into valid account",steps:["Reactivate a sub-user","Check Audit Log"],expected:"Type = SUB_USER_STATUS_UPDATED|Details: new_status = ACTIVE|Details: immutable_flag = true"},
+        {id:"AT-T6",scenario:"Delete sub-user",data:"Logged into valid account",steps:["Delete a sub-user","Check Audit Log"],expected:"Type = SUB_USER_DELETED|Details: immutable_flag = true"},
+        {id:"AT-M1",scenario:"Add sub-merchant (master merchant)",data:"Logged into master merchant account",steps:["Master Merchant → add sub-merchant","Check Audit Log"],expected:"Type = ADD_SUB_MERCHANT|Severity = CRITICAL|Details: immutable_flag = true"},
+        {id:"AT-M2",scenario:"Remove sub-merchant (master merchant)",data:"Logged into master merchant account",steps:["Master Merchant → remove sub-merchant","Check Audit Log"],expected:"Type = REMOVE_SUB_MERCHANT|Severity = CRITICAL|Details: immutable_flag = true"},
+        {id:"AT-M3",scenario:"Add credentials via master merchant for sub-merchant",data:"Logged into master merchant account",steps:["In Master Merchant view → open sub-merchant → add credentials","Check Audit Log"],expected:"Type = CREDENTIALS_ADDED|Description contains: by master merchant on behalf of sub-merchant|Details: immutable_flag = true"},
+        {id:"AT-M4",scenario:"Deactivate sub-merchant",data:"Logged into master merchant account",steps:["Master Merchant → 3-dot menu → View Details → Deactivate","Check Audit Log"],expected:"Type = UPDATE_MERCHANT_STATUS_SUCCESS|Description shows ACTIVE → INACTIVE|Details: immutable_flag = true"},
+        {id:"AT-M5",scenario:"Activate sub-merchant",data:"Logged into master merchant account",steps:["Master Merchant → 3-dot menu → View Details → Activate","Check Audit Log"],expected:"Type = UPDATE_MERCHANT_STATUS_SUCCESS|Description shows INACTIVE → ACTIVE|Details: immutable_flag = true"},
+        {id:"AT-P1",scenario:"[Profile] Update profile name",data:"Logged into valid account",steps:["Settings → update profile name → save","Check Audit Log"],expected:"Type = SUB_USER_UPDATED|Severity = MEDIUM|Description: Sub-user [Updated name] updated by user [Old name]|Details: before_state shows old name|Details: after_state shows new name"},
+        {id:"AT-P2",scenario:"[Profile] Update contact number",data:"Logged into valid account",steps:["Settings → update profile contact number → save","Check Audit Log"],expected:"Type = SUB_USER_UPDATED|Severity = MEDIUM|Details: before_state shows old phone_number|Details: after_state shows new phone_number"},
+        {id:"AT-AC1",scenario:"[Account] Update brand name",data:"Logged into valid account",steps:["Settings → Account → update brand name → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Severity = MEDIUM|Description: Merchant details updated for [Brand name]|Details: before_state shows old brand_name|Details: after_state shows new brand_name"},
+        {id:"AT-AC2",scenario:"[Account] Update company support email",data:"Logged into valid account",steps:["Settings → Account → update support email → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old support_email|Details: after_state shows new support_email"},
+        {id:"AT-AC3",scenario:"[Account] Update company support contact number",data:"Logged into valid account",steps:["Settings → Account → update support contact number → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old support_phone|Details: after_state shows new support_phone"},
+        {id:"AT-AC4",scenario:"[Account] Add company URL",data:"Logged into valid account",steps:["Settings → Account → add company URL → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state website_url is empty|Details: after_state shows new website_url"},
+        {id:"AT-AC5",scenario:"[Account] Update company URL",data:"Logged into valid account",steps:["Settings → Account → update existing company URL → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old website_url|Details: after_state shows new website_url"},
+        {id:"AT-AC6",scenario:"[Account] Add company business details",data:"Logged into valid account",steps:["Settings → Account → add business details → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state business_details is empty|Details: after_state shows new business_details"},
+        {id:"AT-AC7",scenario:"[Account] Update company business details",data:"Logged into valid account",steps:["Settings → Account → update business details → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old business_details|Details: after_state shows new business_details"},
+        {id:"AT-AC8",scenario:"[Account] Add company brand logo",data:"Logged into valid account",steps:["Settings → Account → add brand logo → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state logo is empty|Details: after_state shows logo URL"},
+        {id:"AT-AC9",scenario:"[Account] Update company brand logo",data:"Logged into valid account",steps:["Settings → Account → update brand logo → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old logo URL|Details: after_state shows new logo URL"},
+        {id:"AT-AC10",scenario:"[Account] Remove company brand logo",data:"Logged into valid account",steps:["Settings → Account → remove brand logo → save","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old logo URL|Details: after_state logo is empty"},
+        {id:"AT-TM1",scenario:"[Team] Add new sub-user",data:"Logged into valid account",steps:["Settings → Teams → Invite new user → fill details + roles → save","Check Audit Log"],expected:"Type = SUB_USER_CREATED|Severity = MEDIUM|Description: Sub-user [name] created with roles: [roles]|Details: sub_user_email in extra_metadata|Details: sub_user_roles in extra_metadata"},
+        {id:"AT-TM2",scenario:"[Team] Update sub-user (role change)",data:"Logged into valid account",steps:["Settings → Teams → Edit sub-user → update roles → save","Check Audit Log"],expected:"Type = SUB_USER_UPDATED|Details: before_state shows old roles|Details: after_state shows new roles"},
+        {id:"AT-TM3",scenario:"[Team] Email verification for new sub-user",data:"Logged into valid account",steps:["Create sub-user → verify their email via verification link","Check Audit Log"],expected:"Type = EMAIL_VERIFICATION_SUCCESS|Severity = MEDIUM|Details: is_email_verified = true|Details: onboarding_status = COMPLETED|Details: verification_method = EMAIL_TOKEN"},
+        {id:"AT-PW1",scenario:"[Password] Set password during sub-user onboarding",data:"Logged into valid account",steps:["Create sub-user → verify email → set password during onboarding","Check Audit Log"],expected:"Type = PASSWORD_CHANGE|Severity = CRITICAL|Description: Password updated for user [name] via reset token|Details: password_changed = true"},
+        {id:"AT-PW2",scenario:"[Password] Reset password from login page",data:"Account login page",steps:["Click Forgot your password → enter email → Continue","Reset from email link → log in with new password","Check Audit Log"],expected:"Type = PASSWORD_CHANGE|Severity = CRITICAL|Description: Password updated for user [name] via reset token"},
+        {id:"AT-N1",scenario:"[Notifications] Toggle on Send Refund Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → toggle on Send Refund Email Notification","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state send_refund_email_notification = false|Details: after_state send_refund_email_notification = true"},
+        {id:"AT-N2",scenario:"[Notifications] Toggle off Send Refund Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → toggle off Send Refund Email Notification","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state send_refund_email_notification = true|Details: after_state send_refund_email_notification = false"},
+        {id:"AT-N3",scenario:"[Notifications] Toggle on Receive Payment Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → toggle on Receive Email Notification for Payments","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state send_payment_email_notification = false|Details: after_state send_payment_email_notification = true"},
+        {id:"AT-N4",scenario:"[Notifications] Update email in Payment Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → enable payment notification → update email","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state shows old payment_notification_email|Details: after_state shows new payment_notification_email"},
+        {id:"AT-N5",scenario:"[Notifications] Toggle off Receive Payment Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → toggle off payment notification","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state send_payment_email_notification = true|Details: after_state send_payment_email_notification = false"},
+        {id:"AT-N6",scenario:"[Notifications] Toggle on Send Payout Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → toggle on Send Payout Email Notification","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state send_payout_email_notification = false|Details: after_state send_payout_email_notification = true"},
+        {id:"AT-N7",scenario:"[Notifications] Add email to Payout Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → enable payout notification → add email","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state payout_notification_emails = null|Details: after_state payout_notification_emails = [email]"},
+        {id:"AT-N8",scenario:"[Notifications] Update multiple emails in Payout Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → add multiple payout emails","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: after_state payout_notification_emails has multiple emails"},
+        {id:"AT-N9",scenario:"[Notifications] Toggle off Send Payout Email Notification",data:"Logged into valid account",steps:["Settings → Notifications → toggle off payout notification","Check Audit Log"],expected:"Type = MERCHANT_UPDATED|Details: before_state send_payout_email_notification = true|Details: after_state send_payout_email_notification = false"},
+        {id:"AT-API1",scenario:"[API] Reset secret key",data:"Logged into valid account",steps:["Settings → API → click eye icon → Reset Secret Key → confirm","Check Audit Log"],expected:"Type = API_KEY_RESET|Severity = CRITICAL|Description: PortOne API Secret reset for merchant by user: [email]|Details: merchant_iamport_key in extra_metadata|Details: reset_timestamp in extra_metadata"},
+        {id:"AT-WH1",scenario:"[Webhooks] Add new webhook",data:"Logged into valid account",steps:["Settings → Webhooks → Add Webhook → fill details → save","Check Audit Log"],expected:"Type = WEBHOOK_CREATED|Severity = MEDIUM|Description: Webhook created for merchant by admin user: [email]|Details: webhook_name in extra_metadata|Details: webhook_url in extra_metadata"},
+        {id:"AT-WH2",scenario:"[Webhooks] Update webhook",data:"Logged into valid account",steps:["Settings → Webhooks → Edit → update URL → save","Check Audit Log"],expected:"Type = WEBHOOK_UPDATED|Severity = MEDIUM|Description: Webhook [name] updated by user: [email]|Details: before_state shows old URL|Details: after_state shows new URL"},
+        {id:"AT-MM1",scenario:"[Master Merchant] Invite new sub-merchant",data:"Logged into master merchant account",steps:["Master Merchant → Add Merchant → fill details → Add","Check Audit Log"],expected:"Type = SUB_MERCHANT_CREATED|Severity = MEDIUM|Description: Sub-merchant invitation sent to [email]|Details: after_state has invitation details (country, name, status=SUCCESS)"},
+        {id:"AT-MM2",scenario:"[Master Merchant] Delete sub-merchant",data:"Logged into master merchant account",steps:["Master Merchant → 3-dot menu → Delete → confirm","Check Audit Log"],expected:"Type = REMOVE_SUB_MERCHANT|Severity = CRITICAL|Description: Sub-merchant [name] removed from master merchant [name]|Details: before_state has master_merchant_id|Details: after_state master_merchant_id = null"},
+        {id:"AT-MM3",scenario:"[Master Merchant] Add credentials via master for sub-merchant",data:"Logged into master merchant account",steps:["Payment Channels → search merchant → select channel → Manage Keys → Add credentials","Check Audit Log"],expected:"Type = CREDENTIALS_ADDED|Severity = HIGH|Description contains: by master merchant on behalf of sub-merchant|Details: added_by_master_merchant = true"},
+        {id:"AT-MM4",scenario:"[Master Merchant] Deactivate sub-merchant",data:"Logged into master merchant account",steps:["Master Merchant → 3-dot menu → View Details → Deactivate","Check Audit Log"],expected:"Type = UPDATE_MERCHANT_STATUS_SUCCESS|Description: Master merchant updated merchant status from ACTIVE to INACTIVE|Details: extra_metadata new_status = INACTIVE"},
+        {id:"AT-MM5",scenario:"[Master Merchant] Activate sub-merchant",data:"Logged into master merchant account",steps:["Master Merchant → 3-dot menu → View Details → Activate","Check Audit Log"],expected:"Type = UPDATE_MERCHANT_STATUS_SUCCESS|Description: status from INACTIVE to ACTIVE|Details: extra_metadata new_status = ACTIVE"}
+      ]
+    },
+    { id:"okta", name:"Okta SSO", short:"Okta",
+      cases:[
+        {id:"OK-1",scenario:"Redirect to Okta SSO page",data:"URL: https://admin.portone.cloud/login/tenant/ntuc",steps:["Navigate to https://admin.portone.cloud/login/tenant/ntuc"],expected:"Redirected to Okta Sign-In page|Okta login form shown"},
+        {id:"OK-2",scenario:"Successful SSO login",data:"sso_enabled=true, sso_provider='okta', sso_company='ntuc'",steps:["Navigate to NTUC tenant URL → redirected to Okta","Enter valid credentials → sign in"],expected:"SSO login successful|Redirected to PortOne admin console|User session active"},
+        {id:"OK-3",scenario:"SSO keys not configured",data:"Account exists in Okta + PortOne, NO backend config set",steps:["NTUC tenant URL → sign in"],expected:"Error code: sso_not_enabled shown|Message: not configured for SSO authentication|Password login still accessible"},
+        {id:"OK-4",scenario:"SSO user tries password login",data:"sso_enabled=true",steps:["Go to https://admin.portone.cloud/login → enter username + password"],expected:"Alert shown on password login attempt|Message: configured for SSO authentication|Directed to use SSO login"},
+        {id:"OK-5",scenario:"User in Okta but not in PortOne",data:"Account in Okta only, NOT in PortOne admin",steps:["NTUC tenant URL → sign in with Okta credentials"],expected:"Error shown on login|Error code: user_not_found|Message: User not found or not authorized"},
+        {id:"OK-6",scenario:"SSO user tries forgot password",data:"sso_enabled=true",steps:["Go to /forgot-password → enter SSO email → Continue"],expected:"Alert shown on forgot password page|Message: SSO enabled - password cannot be reset|Directed to contact administrator"},
+        {id:"OK-7",scenario:"Inactive user login",data:"Account marked inactive, sso_enabled=true",steps:["NTUC tenant URL → sign in"],expected:"Error shown on login|Error code: user_inactive|Message: User account is inactive"},
+        {id:"OK-8",scenario:"Login ID mismatch",data:"2 accounts, sso_enabled=true",steps:["Login to Okta dashboard with User A","Try NTUC tenant URL with User B credentials"],expected:"Error shown on login|Error code: invalid_state|Message: Invalid or expired state"},
+        {id:"OK-9",scenario:"Invalid/empty SSO provider",data:"sso_enabled=true, sso_provider=' '",steps:["NTUC tenant URL → sign in"],expected:"Error shown on login|Error code: sso_provider_mismatch|Message: not configured for Okta SSO"},
+        {id:"OK-10",scenario:"Invalid/empty SSO company",data:"sso_enabled=true, sso_provider='okta', sso_company=' '",steps:["NTUC tenant URL → sign in"],expected:"Error shown on login|Error code: sso_company_mismatch|Message: not configured for NTUC SSO"},
+        {id:"OK-11",scenario:"Existing non-SSO user login unaffected",data:"Standard PortOne account (no SSO)",steps:["Go to https://admin.portone.cloud/login → enter username + password"],expected:"Password login successful|Redirected to PortOne admin console|User session active"},
+        {id:"OK-12",scenario:"User not in PortOneOktaSSO group",data:"Account in Okta but NOT in PortOneOktaSSO group",steps:["NTUC tenant URL → sign in"],expected:"Redirected to Okta error page|Error: Your request resulted in an error|User is not assigned to the client application"},
+        {id:"OK-13",scenario:"Logout with Okta session still active",data:"sso_enabled=true, Okta session active",steps:["Log in via SSO → log out of PortOne admin"],expected:"Logged out of PortOne admin|Okta session still active|Auto-redirected back and logged in to PortOne"},
+        {id:"OK-14",scenario:"Logout with Okta session inactive",data:"sso_enabled=true",steps:["Log out of Okta dashboard first","Then log out of PortOne admin"],expected:"Redirected to Okta Sign-In page|Okta login form shown"},
+        {id:"OK-15",scenario:"sso_enabled = false",data:"sso_enabled=false, sso_provider='okta', sso_company='ntuc'",steps:["NTUC tenant URL → sign in"],expected:"Error code: sso_not_enabled shown|Message: not configured for SSO authentication"},
+        {id:"OK-16",scenario:"Login via Okta portal (MyApps)",data:"Logged into Okta, PortOne app in MyApps",steps:["Click PortOne app in Okta MyApps"],expected:"Clicked PortOne app in Okta MyApps|Redirected to PortOne admin console|User session active"},
+        {id:"OK-17",scenario:"Sub-users auto-inherit SSO (no verification email)",data:"Admin user with SSO configured",steps:["Settings → Teams → Invite new user","Verify no verification email sent","Add user to Okta → log in as that user"],expected:"Sub-user invited successfully|No verification email received|Sub-user added to Okta|Sub-user can log in via NTUC SSO"}
+      ]
+    },
+    { id:"batch", name:"Batch Deduction", short:"Batch",
+      cases:[
+        {id:"BD-1",scenario:"Valid file upload",data:"Valid CSV file",steps:["Upload valid file via SFTP","Download response from response folder","Check PortOne dashboard for all entries"],expected:"File upload success|All entries visible in dashboard|All statuses correct",webhook:"Response file generated in SFTP response folder|All entries show correct status"},
+        {id:"BD-2",scenario:"File with 0 amount",data:"Amount = 0 in file",steps:["Upload file with amount=0 via SFTP","Check response file + dashboard"],expected:"File upload success|Transaction status = Failed|Error: Amount must be greater than zero|Dashboard amount = 0.0",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-3",scenario:"File with missing amount",data:"Empty amount field",steps:["Upload file with empty amount field"],expected:"File upload success|Transaction status = Failed|Error: Either Order Amount or Net Amount must be provided",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-4",scenario:"File with negative amount",data:"Negative amount e.g. -50",steps:["Upload file with negative amount"],expected:"File upload success|Transaction status = Failed|Error: Invalid character - in amount",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-5",scenario:"File with >2 decimal places",data:"Amount like 12.345",steps:["Upload file with amount having >2 decimal places"],expected:"File upload success|Transaction status = Failed|Error: Too many decimal places specified",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-6",scenario:"File with empty currency",data:"Empty currency field",steps:["Upload file with empty currency"],expected:"File upload success|Transaction status = Failed|Error: Missing parameter",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-7",scenario:"File with invalid currency (non-SGD)",data:"Currency ≠ SGD",steps:["Upload file with non-SGD currency"],expected:"File upload success|Transaction status = Failed|Error: No valid Merchant Acquirer Relationship available",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-8",scenario:"File with invalid token",data:"Invalid payment token",steps:["Upload file with invalid token"],expected:"File upload success|Transaction status = Failed|Error: Token not found",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-9",scenario:"File with empty token",data:"Blank token field",steps:["Upload file with blank token"],expected:"File upload success|Transaction status = Failed|Error: Must provide mandatory payment details",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-10",scenario:"File with expired card token",data:"Expired card token",steps:["Upload file with expired card token"],expected:"File upload success|Transaction status = Failed|Error: Expired card",webhook:"Response file generated|Entry status = Failed|Error reason matches expected"},
+        {id:"BD-11",scenario:"Same file uploaded twice",data:"Same filename",steps:["Upload file 1 → get response","Re-upload exact same file (same filename)","Check for duplicate entries"],expected:"2nd file stays in deduction folder (not processed)|Transaction captured only once|No duplicate entries in dashboard",webhook:"Response file for 1st upload only|No response file for duplicate upload"},
+        {id:"BD-12a",scenario:"Multiple files — 20 entries × 10 files",data:"Sandbox: 20 entries/file, 10 files simultaneously",steps:["Upload 10 files simultaneously via SFTP","Check all responses + dashboard"],expected:"All files uploaded successfully|All entries visible in dashboard|All statuses correct",webhook:"Response files generated for all 10 files|All entries show correct status"},
+        {id:"BD-12b",scenario:"Multiple files — 500 entries × 10 files",data:"Sandbox: 500 entries/file, 10 files simultaneously",steps:["Upload 10 files simultaneously via SFTP","Check all responses + dashboard"],expected:"All 10 files uploaded successfully|Response files generated|All entries in dashboard|Known bug: some files may fail at 500 entries",webhook:"Response files generated (known bug: some may be missing)",knownBug:"Some file uploads fail; not all transaction entries appear in response files"},
+        {id:"BD-13",scenario:"[API] RetrieveBatch — valid file name",data:"GET /api/uatntuc/RetrieveBatch/UCEM/{validFileName.csv}",steps:["Send GET request with valid filename"],expected:'HTTP 200, BatchStatus="Success", PGBatchStatus="COMPLETE"'},
+        {id:"BD-14",scenario:"[API] RetrieveBatch — invalid file name",data:"GET /api/uatntuc/RetrieveBatch/UCEM/invalidFileName.csv",steps:["Send GET request with invalid filename"],expected:'HTTP 500, ErrorCode="4001", ErrorDescription="Batch file not found"'},
+        {id:"BD-15",scenario:"[API] RetrieveBatch — missing AppID",data:"GET double-slash URL",steps:["Send GET request without AppID (double slash in URL)"],expected:'HTTP 400, {"error":{"message":"appId is required in URL params"}}'}
+      ]
+    }
+  ]
+};
+
+const WEBHOOK_SCHEMAS = {
+  paynow_success: {
+    label: "PayNow — Success",
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"PAYNOW", label:"OneTimePaymentMethod = PAYNOW"},
+      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"ErrorCode", value:"", label:"ErrorCode is empty"},
+      {field:"ErrorDescription", value:"", label:"ErrorDescription is empty"}
+    ]
+  },
+  paynow_fail: {
+    label: "PayNow — Failure",
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"PAYNOW", label:"OneTimePaymentMethod = PAYNOW"},
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"ErrorCode", value:"4000", label:"ErrorCode = 4000"},
+    ]
+  },
+  paynow_invalid: {
+    label: "PayNow — Invalid Amount",
+    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"ErrorCode", value:"5000", label:"ErrorCode = 5000"},
+      {field:"OneTimePaymentMethod", value:"PAYNOW", label:"OneTimePaymentMethod = PAYNOW"}
+    ]
+  },
+  paynow_expire: {
+    label: "PayNow — Expiry",
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Cancelled", label:"OneTimePaymentStatus = Cancelled"},
+      {field:"ErrorCode", value:"4072", label:"ErrorCode = 4072"},
+      {field:"ErrorDescription", value:"Transaction expired", label:"ErrorDescription contains 'Transaction expired'", contains:true}
+    ]
+  },
+  mpgs_success: {
+    label: "MPGS — Success",
+    required: ["ClientOrderId","PGOrderId","OneTimeMerchantId","OneTimePaymentMethod","OneTimeCardExpiryDate","OneTimeCardType","OneTimePaymentStatus","OrderAmount"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
+      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"ErrorCode", value:"", label:"ErrorCode is empty"}
+    ]
+  },
+  mpgs_fail: {
+    label: "MPGS — Failure",
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"}
+    ]
+  },
+  mpgs_recurring_success: {
+    label: "MPGS — Recurring Only Success",
+    required: ["ClientOrderId","PGOrderId","RecurringMerchantId","RecurringPaymentMethod","RecurringCardType","RecurringPaymentStatus","Token","OrderAmount"],
+    checks: [
+      {field:"RecurringPaymentMethod", value:"CARDPAYMENT", label:"RecurringPaymentMethod = CARDPAYMENT"},
+      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
+      {field:"Token", value:"", label:"Token is present (tokenized card)", notEmpty:true},
+      {field:"OrderAmount", value:"0", label:"OrderAmount = 0"},
+      {field:"ErrorCode", value:"", label:"ErrorCode is empty"}
+    ]
+  },
+  mpgs_both_success: {
+    label: "MPGS — Recurring+OneTime Success",
+    required: ["ClientOrderId","PGOrderId","OneTimeMerchantId","OneTimePaymentMethod","OneTimeCardExpiryDate","OneTimeCardType","OneTimePaymentStatus","RecurringMerchantId","RecurringPaymentMethod","RecurringCardType","RecurringPaymentStatus","Token","OrderAmount"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
+      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"RecurringPaymentMethod", value:"CARDPAYMENT", label:"RecurringPaymentMethod = CARDPAYMENT"},
+      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
+      {field:"Token", value:"", label:"Token is present (tokenized card)", notEmpty:true},
+      {field:"ErrorCode", value:"", label:"ErrorCode is empty"}
+    ]
+  },
+  egiro_success: {
+    label: "eGIRO — Success (Recurring)",
+    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","Token","OrderAmount","OneTimeAcctName","RecurringAcctName","OneTimeAcctNo","RecurringAcctNo","OneTimeBankCode","RecurringBankCode"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
+      {field:"OneTimePaymentMethod", value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
+      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
+      {field:"Token", value:"", label:"Token is present (not empty)", notEmpty:true}
+    ]
+  },
+  egiro_fail: {
+    label: "eGIRO — Failure",
+    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"}
+    ]
+  },
+  egiro_expire: {
+    label: "eGIRO — Expiry / Timeout",
+    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode", value:"4072", label:"ErrorCode = 4072"},
+      {field:"ErrorDescription", value:"PAYER_AUTHORIZATION_TIMEOUT", label:"ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT", contains:true}
+    ]
+  },
+  egiro_magic: {
+    label: "eGIRO — Magic Number (Amount=72)",
+    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","Token","OrderAmount"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
+      {field:"Token", value:"", label:"Token is present (not empty)", notEmpty:true},
+      {field:"OrderAmount", value:"72", label:"OrderAmount = 72"}
+    ]
+  },
+  egiro_both_success: {
+    label: "eGIRO — Recurring+OneTime Success",
+    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","Token","OrderAmount","OneTimeAcctName","RecurringAcctName","OneTimeAcctNo","RecurringAcctNo","OneTimeBankCode","RecurringBankCode","OneTimeBranchCode","RecurringBranchCode","OneTimeDDARefNo","RecurringDDARefNo"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
+      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
+      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
+      {field:"Token", value:"", label:"Token is present (not empty)", notEmpty:true},
+      {field:"ErrorCode", value:"", label:"ErrorCode is empty"},
+      {field:"ErrorDescription", value:"", label:"ErrorDescription is empty"}
+    ]
+  },
+  egiro_both_fail: {
+    label: "eGIRO — Recurring+OneTime Failure",
+    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
+    checks: [
+      {field:"OneTimePaymentMethod", value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
+      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode", value:"4080", label:"ErrorCode = 4080"}
+    ]
+  },
+  egiro_both_expire: {
+    label: "eGIRO — Recurring+OneTime Expiry",
+    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
+    checks: [
+      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode", value:"4072", label:"ErrorCode = 4072"},
+      {field:"ErrorDescription", value:"PAYER_AUTHORIZATION_TIMEOUT", label:"ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT", contains:true}
+    ]
+  },
+  egiro_no_dda: {
+    label: "eGIRO — Missing DDARef",
+    required: ["ClientOrderId","RecurringPaymentMethod","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
+    checks: [
+      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
+      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode", value:"4001", label:"ErrorCode = 4001"},
+      {field:"ErrorDescription", value:"DDARef is missing", label:"ErrorDescription contains DDARef is missing", contains:true},
+      {field:"Token", value:"", label:"Token is empty (no token generated)"}
+    ]
+  }
+};
+
+const LS_KEY = "ntuc_runner_state";
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        activeSection: parsed.activeSection || "paynow",
+        activeTcIdx: parsed.activeTcIdx || 0,
+        view: parsed.view || "run",
+        results: parsed.results || {},
+        notes: parsed.notes || {},
+        expanded: parsed.expanded || {},
+        checks: parsed.checks || {},
+        valPayload: parsed.valPayload || "",
+        valSchema: parsed.valSchema || "paynow_success",
+        valResults: null
+      };
+    }
+  } catch(e) {}
+  return {
+    activeSection: "paynow",
+    activeTcIdx: 0,
+    view: "run",
+    results: {},
+    notes: {},
+    expanded: {},
+    checks: {},
+    valPayload: "",
+    valSchema: "paynow_success",
+    valResults: null
+  };
+}
+
+function saveState() {
+  try {
+    const toSave = {
+      activeSection: S.activeSection,
+      activeTcIdx: S.activeTcIdx,
+      view: S.view,
+      results: S.results,
+      notes: S.notes,
+      expanded: S.expanded,
+      checks: S.checks,
+      valPayload: S.valPayload,
+      valSchema: S.valSchema
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(toSave));
+    showSaved();
+  } catch(e) {}
+}
+
+let S = loadState();
+
+function parseCheckpoints(expected) {
+  if (!expected) return [expected];
+  if (expected.includes("|")) {
+    return expected.split("|").map(p => p.trim()).filter(p => p.length > 1);
+  }
+  const parts = expected.split(/\. +(?=[A-Z])/).map(p => p.replace(/\.$/, "").trim()).filter(p => p.length > 4);
+  return parts.length > 1 ? parts : [expected.replace(/\.$/, "")];
+}
+
+function toggleCheck(tcId, idx) {
+  if (!S.checks[tcId]) S.checks[tcId] = {};
+  S.checks[tcId][idx] = !S.checks[tcId][idx];
+  saveState();
+  // Re-render just the checks section without full re-render
+  const el = document.getElementById("checks-" + tcId);
+  if (el) el.outerHTML = renderChecksHtml(tcId, parseCheckpoints(
+    TEST_DATA.sections.flatMap(s=>s.cases).find(c=>c.id===tcId)?.expected || ""
+  ));
+}
+
+function renderChecksHtml(tcId, checkpoints) {
+  const tcChecks = S.checks[tcId] || {};
+  const checkedCount = Object.values(tcChecks).filter(Boolean).length;
+  const total = checkpoints.length;
+  
+  let html = `<div class="expected-checks" id="checks-${tcId}">`;
+  html += `<span class="label">✓ Expected results — verify each</span>`;
+  if (total > 1) {
+    html += `<div class="checks-progress">${checkedCount}/${total} verified</div>`;
+  }
+  checkpoints.forEach((point, idx) => {
+    const isChecked = !!tcChecks[idx];
+    html += `<div class="check-item${isChecked?" checked":""}" onclick="toggleCheck('${tcId}',${idx})">
+      <div class="check-box"><span class="check-tick">✓</span></div>
+      <span class="check-text">${e(point)}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderWebhookChecksHtml(tcId, wChecks) {
+  const key = "w_" + tcId;
+  const tcChecks = S.checks[key] || {};
+  const checkedCount = Object.values(tcChecks).filter(Boolean).length;
+  const total = wChecks.length;
+  let html = `<div class="expected-checks webhook-checks" id="wchecks-${tcId}">`;
+  html += `<span class="label" style="color:#7c4dcc">🔔 Webhook / Callback check</span>`;
+  if (total > 1) html += `<div class="checks-progress">${checkedCount}/${total} verified</div>`;
+  wChecks.forEach((point, idx) => {
+    const isChecked = !!tcChecks[idx];
+    html += `<div class="check-item${isChecked?" checked":""}" style="${isChecked?"background:rgba(124,77,204,0.1);border-color:rgba(124,77,204,0.3)":"background:rgba(124,77,204,0.04);border-color:rgba(124,77,204,0.12)"}" onclick="toggleWebhookCheck('${tcId}',${idx})">
+      <div class="check-box" style="${isChecked?"background:#7c4dcc;border-color:#7c4dcc":"border-color:rgba(124,77,204,0.4)"}"><span class="check-tick">✓</span></div>
+      <span class="check-text">${e(point)}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function toggleWebhookCheck(tcId, idx) {
+  const key = "w_" + tcId;
+  if (!S.checks[key]) S.checks[key] = {};
+  S.checks[key][idx] = !S.checks[key][idx];
+  saveState();
+  const el = document.getElementById("wchecks-" + tcId);
+  const tc = TEST_DATA.sections.flatMap(s => s.cases).find(c => c.id === tcId);
+  if (el && tc && tc.webhook) {
+    const wChecks = tc.webhook.split("|").map(p => p.trim()).filter(p => p.length > 1);
+    el.outerHTML = renderWebhookChecksHtml(tcId, wChecks);
+  }
+}
+
+function allCases(){ return TEST_DATA.sections.flatMap(s=>s.cases.map(c=>({...c,sectionId:s.id,sectionName:s.name}))); }
+function sectionCases(id){ const s=TEST_DATA.sections.find(x=>x.id===id); return s?s.cases:[]; }
+function getSectionStats(id){
+  const cases=sectionCases(id);
+  return {
+    pass:cases.filter(c=>S.results[c.id]==="pass").length,
+    fail:cases.filter(c=>S.results[c.id]==="fail").length,
+    blocked:cases.filter(c=>S.results[c.id]==="blocked").length,
+    skip:cases.filter(c=>S.results[c.id]==="skip").length,
+    total:cases.length,
+    done:cases.filter(c=>S.results[c.id]).length
+  };
+}
+function getOverallStats(){
+  const all=allCases();
+  const pass=all.filter(c=>S.results[c.id]==="pass").length;
+  const fail=all.filter(c=>S.results[c.id]==="fail").length;
+  const blocked=all.filter(c=>S.results[c.id]==="blocked").length;
+  const skip=all.filter(c=>S.results[c.id]==="skip").length;
+  return {pass,fail,blocked,skip,total:all.length,done:pass+fail+blocked+skip};
+}
+
+function e(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""; }
+
+function renderSidebar(){
+  const nav=document.getElementById("sidebar-nav");
+  const stats=document.getElementById("sidebar-stats");
+  const overall=getOverallStats();
+  let navHtml="";
+  TEST_DATA.sections.forEach(sec=>{
+    const ss=getSectionStats(sec.id);
+    const isActive=S.activeSection===sec.id;
+    let dotCls="sec-dot dot-empty";
+    if(ss.fail>0) dotCls="sec-dot dot-fail";
+    else if(ss.done===ss.total&&ss.total>0) dotCls="sec-dot dot-pass";
+    navHtml+=`<div class="sec-item ${isActive?"active":""}" onclick="switchSection('${sec.id}')">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="${dotCls}"></div>
+        <span class="sec-name">${sec.name}</span>
+      </div>
+      <span class="sec-count">${ss.done}/${ss.total}${ss.fail>0&&!isActive?` · ${ss.fail}✗`:""}</span>
+    </div>`;
+  });
+  nav.innerHTML=navHtml;
+  stats.innerHTML=`
+    <div class="mini-stat"><div class="mini-stat-val val-pass">${overall.pass}</div><div class="mini-stat-label">Pass</div></div>
+    <div class="mini-stat"><div class="mini-stat-val val-fail">${overall.fail}</div><div class="mini-stat-label">Fail</div></div>
+    <div class="mini-stat"><div class="mini-stat-val val-blocked">${overall.blocked}</div><div class="mini-stat-label">Blocked</div></div>
+    <div class="mini-stat"><div class="mini-stat-val">${overall.skip}</div><div class="mini-stat-label">Skip</div></div>
+  `;
+}
+
+function renderTopbar(){
+  const overall=getOverallStats();
+  const pct=overall.total>0?(overall.done/overall.total*100):0;
+  document.getElementById("prog-fill").style.width=pct.toFixed(1)+"%";
+  document.getElementById("prog-label").textContent=`${overall.done} / ${overall.total} cases`;
+  const sec=TEST_DATA.sections.find(s=>s.id===S.activeSection);
+  document.getElementById("topbar-title").textContent=sec?sec.name:"";
+  ["tab-run","tab-all","tab-webhook"].forEach(id=>{
+    document.getElementById(id).classList.remove("active");
+  });
+  const tabMap={run:"tab-run",all:"tab-all",webhook:"tab-webhook"};
+  if(tabMap[S.view]) document.getElementById(tabMap[S.view]).classList.add("active");
+}
+
+function renderMain(){
+  const content=document.getElementById("main-content");
+  if(S.view==="webhook"){ content.innerHTML=renderWebhook(); attachWebhookEvents(); return; }
+  const cases=sectionCases(S.activeSection);
+  if(S.view==="run"){
+    const tc=cases[S.activeTcIdx];
+    if(!tc){
+      const ss=getSectionStats(S.activeSection);
+      content.innerHTML=`<div class="done-banner"><h3>✅ Section complete!</h3><p>All ${ss.total} test cases in this section are done. Switch to the next section or generate your report.</p></div>`;
+      return;
+    }
+    content.innerHTML=renderTcCard(tc,true)+`<div class="nav-row">
+      <button class="btn" onclick="prevCase()" ${S.activeTcIdx===0?"disabled":""} style="opacity:${S.activeTcIdx===0?0.4:1}">← Prev</button>
+      <span class="nav-counter">${S.activeTcIdx+1} / ${cases.length}</span>
+      <button class="btn" onclick="nextCase()" ${S.activeTcIdx>=cases.length-1?"disabled":""} style="opacity:${S.activeTcIdx>=cases.length-1?0.4:1}">Next →</button>
+    </div>`;
+  } else {
+    content.innerHTML=cases.map((tc,i)=>renderTcCard(tc,false,i)).join("");
+  }
+}
+
+function renderTcCard(tc, isCurrent){
+  const result=S.results[tc.id];
+  const note=S.notes[tc.id]||"";
+  const expanded=S.expanded[tc.id]!==false;
+  let cardCls=`tc-card${isCurrent?" current-card":""}${result?" result-"+result:""}`;
+  let pillHtml="";
+  if(result==="pass") pillHtml=`<span class="status-pill pill-pass">✓ Pass</span>`;
+  else if(result==="fail") pillHtml=`<span class="status-pill pill-fail">✗ Fail</span>`;
+  else if(result==="blocked") pillHtml=`<span class="status-pill pill-blocked">⚠ Blocked</span>`;
+  else if(result==="skip") pillHtml=`<span class="status-pill pill-skip">— Skip</span>`;
+  else pillHtml=`<span class="status-pill pill-pending">Pending</span>`;
+  if(tc.knownBug) pillHtml+=` <span class="bug-pill">🐛 known bug</span>`;
+  if(tc.slow) pillHtml+=` <span class="slow-pill">⏱ long test</span>`;
+
+  let bodyHtml="";
+  if(expanded){
+    bodyHtml=`<div class="tc-body">`;
+    if(tc.data) bodyHtml+=`<div class="tc-data-box"><strong>Test data:</strong> ${e(tc.data)}</div>`;
+    if(tc.steps&&tc.steps.length) bodyHtml+=`<ol class="steps-ol">${tc.steps.map(s=>`<li>${e(s)}</li>`).join("")}</ol>`;
+    const checkpoints = parseCheckpoints(tc.expected);
+    bodyHtml += renderChecksHtml(tc.id, checkpoints);
+    if (tc.webhook) {
+      const wChecks = tc.webhook.split("|").map(p => p.trim()).filter(p => p.length > 1);
+      bodyHtml += renderWebhookChecksHtml(tc.id, wChecks);
+    }
+    if(tc.knownBug) bodyHtml+=`<div class="bug-box">🐛 <strong>Known bug:</strong> ${e(tc.knownBug)}</div>`;
+    bodyHtml+=`<div class="action-row">
+      <button class="btn btn-pass-btn" onclick="setResult('${tc.id}','pass')">✓ Pass</button>
+      <button class="btn btn-fail-btn" onclick="setResult('${tc.id}','fail')">✗ Fail</button>
+      <button class="btn btn-blocked-btn" onclick="setResult('${tc.id}','blocked')">⚠ Blocked</button>
+      <button class="btn btn-skip-btn" onclick="setResult('${tc.id}','skip')">— Skip</button>
+      ${result?`<button class="btn btn-sm reset-btn" onclick="clearResult('${tc.id}')">↺ Reset</button>`:""}
+    </div>
+    <textarea class="note-textarea" placeholder="Notes / deviation details (optional)…" onchange="setNote('${tc.id}',this.value)">${e(note)}</textarea>`;
+    if(tc.cbType) bodyHtml+=`<div style="margin-top:10px"><button class="btn btn-sm" onclick="openWebhookForTC('${tc.cbType}')">🔗 Validate webhook for this test →</button></div>`;
+    bodyHtml+=`</div>`;
+  }
+
+  return `<div class="${cardCls}" id="tc-${tc.id}">
+    <div class="tc-card-header" onclick="toggleExpand('${tc.id}')">
+      <div>
+        <div class="tc-id-badge">${tc.id}</div>
+        <div class="tc-scenario">${e(tc.scenario)}</div>
+      </div>
+      <div class="tc-header-right">
+        ${pillHtml}
+        <span class="chevron ${expanded?"open":""}">▼</span>
+      </div>
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+function renderWebhook(){
+  const schemaOpts=Object.entries(WEBHOOK_SCHEMAS).map(([k,v])=>`<option value="${k}" ${S.valSchema===k?"selected":""}>${v.label}</option>`).join("");
+  let resultsHtml="";
+  if(S.valResults){
+    const all=S.valResults;
+    const failCount=all.filter(r=>r.status==="fail").length;
+    const warnCount=all.filter(r=>r.status==="warn").length;
+    const summCls=failCount>0?"vs-fail":warnCount>0?"vs-fail":"vs-pass";
+    const summMsg=failCount>0?`❌ ${failCount} check(s) failed`:`✅ All checks passed`;
+    resultsHtml=`<div class="val-summary ${summCls}">${summMsg} · ${all.length} total checks</div>`;
+    resultsHtml+=all.map(r=>{
+      const cls=r.status==="pass"?"vri-pass":r.status==="warn"?"vri-warn":"vri-fail";
+      const icon=r.status==="pass"?"✓":r.status==="warn"?"⚠":"✗";
+      return `<div class="val-result-item ${cls}"><span class="vri-icon">${icon}</span><div><span class="vri-label">${e(r.label)}</span>${r.found!==undefined?`<span class="vri-val">→ found: "${e(String(r.found))}"</span>`:""}${r.msg?`<span class="vri-val"> — ${e(r.msg)}</span>`:""}</div></div>`;
+    }).join("");
+  }
+
+  return `<div class="validator-panel">
+    <h3>🔗 Webhook Payload Validator</h3>
+    <p>Paste the received webhook JSON and select the expected schema to validate all required fields and values.</p>
+    <div class="validator-layout">
+      <div>
+        <div class="field-group">
+          <label>Webhook JSON payload</label>
+          <textarea class="webhook-textarea" id="webhook-paste" placeholder='Paste webhook JSON here…\n{\n  "ClientOrderId": "OMA123",\n  "OneTimePaymentStatus": "Success",\n  …\n}'>${e(S.valPayload)}</textarea>
+        </div>
+        <div class="field-group">
+          <label>Expected schema</label>
+          <select class="val-select" id="val-schema-select">${schemaOpts}</select>
+        </div>
+        <button class="btn btn-dark validate-btn" onclick="runValidation()">▶ Validate</button>
+        <button class="btn btn-sm" style="margin-left:8px" onclick="clearValidation()">✕ Clear</button>
+      </div>
+      <div>
+        <div class="field-group"><label>Validation results</label></div>
+        <div class="val-results" id="val-results">${resultsHtml||'<p style="color:var(--text3);font-size:13px">Paste a payload and click Validate to see results.</p>'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function attachWebhookEvents(){
+  const ta=document.getElementById("webhook-paste");
+  const sel=document.getElementById("val-schema-select");
+  if(ta) ta.onchange=function(){ S.valPayload=this.value; };
+  if(ta) ta.oninput=function(){ S.valPayload=this.value; };
+  if(sel) sel.onchange=function(){ S.valSchema=this.value; };
+}
+
+function runValidation(){
+  S.valPayload=document.getElementById("webhook-paste")?.value||"";
+  S.valSchema=document.getElementById("val-schema-select")?.value||"paynow_success";
+  let parsed;
+  try{ parsed=JSON.parse(S.valPayload); }
+  catch(err){ S.valResults=[{status:"fail",label:"JSON parse error",msg:err.message}]; render(); return; }
+  const schema=WEBHOOK_SCHEMAS[S.valSchema];
+  if(!schema){ S.valResults=[{status:"fail",label:"Unknown schema"}]; render(); return; }
+  const results=[];
+  schema.required.forEach(field=>{
+    const present=parsed.hasOwnProperty(field);
+    results.push({status:present?"pass":"fail",label:`Field present: ${field}`,found:present?parsed[field]:undefined,msg:present?"":`Missing required field`});
+  });
+  schema.checks.forEach(chk=>{
+    const val=parsed[chk.field];
+    let ok=false;
+    if(chk.notEmpty) ok=val!==undefined&&val!==null&&val!=="";
+    else if(chk.contains) ok=val!==undefined&&String(val).toLowerCase().includes(String(chk.value).toLowerCase());
+    else ok=val===chk.value;
+    results.push({status:ok?"pass":"fail",label:chk.label,found:val,msg:ok?"":chk.notEmpty?`Expected non-empty value`:`Expected "${chk.value}", got "${val}"`});
+  });
+  S.valResults=results;
+  render();
+}
+
+function clearValidation(){ S.valPayload=""; S.valResults=null; render(); }
+function openWebhookForTC(schemaType){ S.view="webhook"; S.valSchema=schemaType; S.valResults=null; render(); }
+
+function setResult(id,val){
+  S.results[id]=val;
+  saveState();
+  if(S.view==="run"){
+    const cases=sectionCases(S.activeSection);
+    if(S.activeTcIdx<cases.length-1){ setTimeout(()=>{ S.activeTcIdx++; render(); },280); }
+  }
+  render();
+}
+function clearResult(id){ delete S.results[id]; delete S.checks[id]; saveState(); render(); }
+function setNote(id,val){ S.notes[id]=val; saveState(); }
+function toggleExpand(id){ S.expanded[id]=S.expanded[id]===false?true:false; saveState(); render(); }
+function prevCase(){ if(S.activeTcIdx>0){ S.activeTcIdx--; saveState(); render(); } }
+function nextCase(){ const cases=sectionCases(S.activeSection); if(S.activeTcIdx<cases.length-1){ S.activeTcIdx++; saveState(); render(); } }
+function switchSection(id){ S.activeSection=id; S.activeTcIdx=0; S.view="run"; saveState(); render(); }
+function setView(v){ S.view=v; saveState(); render(); }
+
+function generateReport(){
+  const stats=getOverallStats();
+  const env=document.getElementById("env-select")?.value||"Dev";
+  const tester=document.getElementById("tester-input")?.value||"—";
+  const now=new Date();
+  const dateStr=now.toLocaleDateString("en-SG",{day:"2-digit",month:"short",year:"numeric"});
+  const timeStr=now.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
+  const fails=allCases().filter(c=>S.results[c.id]==="fail");
+  const blockedCases=allCases().filter(c=>S.results[c.id]==="blocked");
+  const knownBugHit=fails.filter(c=>c.knownBug);
+  const newIssues=fails.filter(c=>!c.knownBug);
+  let status="✅ READY FOR DEPLOYMENT";
+  if(newIssues.some(c=>["paynow","egiro","mpgs"].includes(c.sectionId))) status="❌ BLOCKED";
+  else if(newIssues.length>0||blockedCases.some(c=>["paynow","egiro","mpgs"].includes(c.sectionId))) status="⚠️ ISSUES FOUND";
+  else if(blockedCases.length>0) status="⚠️ ISSUES FOUND";
+
+  let r=`===== NTUC REGRESSION RUN REPORT =====\n`;
+  r+=`Date        : ${dateStr} ${timeStr}\n`;
+  r+=`Tester      : ${tester}\n`;
+  r+=`Environment : ${env}\n\n`;
+  r+=`SUMMARY\n-------\n`;
+  r+=`Total Run   : ${stats.done} / ${stats.total}\n`;
+  r+=`Passed      : ${stats.pass}\n`;
+  r+=`Failed      : ${stats.fail}\n`;
+  r+=`Blocked     : ${stats.blocked}\n`;
+  r+=`Skipped     : ${stats.skip}\n\n`;
+
+  TEST_DATA.sections.forEach(sec=>{
+    const ss=getSectionStats(sec.id);
+    r+=`${sec.name.padEnd(20)}: ${ss.pass}P ${ss.fail}F ${ss.blocked}B ${ss.skip}S / ${ss.total}\n`;
+  });
+  r+="\n";
+
+  if(fails.length>0){
+    r+=`FAILURES\n--------\n`;
+    fails.forEach(c=>{
+      r+=`[${c.sectionName}] ${c.id} — ${c.scenario}\n`;
+      if(S.notes[c.id]) r+=`  Deviation : ${S.notes[c.id]}\n`;
+      if(c.knownBug) r+=`  Known bug : ${c.knownBug}\n`;
+      r+="\n";
+    });
+  }
+
+  if(blockedCases.length>0){
+    r+=`BLOCKED\n-------\n`;
+    blockedCases.forEach(c=>{
+      r+=`[${c.sectionName}] ${c.id} — ${c.scenario}\n`;
+      if(S.notes[c.id]) r+=`  Reason    : ${S.notes[c.id]}\n`;
+    });
+    r+="\n";
+  }
+
+  if(knownBugHit.length>0){
+    r+=`KNOWN BUGS ENCOUNTERED\n----------------------\n`;
+    knownBugHit.forEach(c=>{ r+=`• ${c.id}: ${c.knownBug}\n`; });
+    r+="\n";
+  }
+
+  if(newIssues.length>0){
+    r+=`NEW ISSUES ⚠️\n-------------\n`;
+    newIssues.forEach(c=>{
+      r+=`• [${c.sectionName}] ${c.id} — ${c.scenario}\n`;
+      if(S.notes[c.id]) r+=`  Details: ${S.notes[c.id]}\n`;
+    });
+    r+="\n";
+  }
+
+  r+=`OVERALL STATUS: ${status}\n`;
+  r+=`=======================================`;
+  return {report:r, status};
+}
+
+function openReport(){
+  const {report,status}=generateReport();
+  let pillCls="op-ready", pillTxt="✅ Ready for Deployment";
+  if(status.includes("BLOCKED")){ pillCls="op-blocked"; pillTxt="❌ Blocked"; }
+  else if(status.includes("ISSUES")){ pillCls="op-issues"; pillTxt="⚠️ Issues Found"; }
+  document.getElementById("overall-pill-container").innerHTML=`<div class="overall-pill ${pillCls}">${pillTxt}</div>`;
+  document.getElementById("report-content").textContent=report;
+  document.getElementById("report-modal").style.display="flex";
+}
+
+function closeReport(){ document.getElementById("report-modal").style.display="none"; }
+
+function copyReport(){
+  const txt=document.getElementById("report-content").textContent;
+  navigator.clipboard.writeText(txt).catch(()=>{});
+}
+
+function downloadReport(){
+  const txt=document.getElementById("report-content").textContent;
+  const env=document.getElementById("env-select")?.value||"Dev";
+  const now=new Date();
+  const dateStr=now.toISOString().split("T")[0];
+  const blob=new Blob([txt],{type:"text/plain"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`NTUC_Regression_${env}_${dateStr}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function render(){
+  renderSidebar();
+  renderTopbar();
+  renderMain();
+}
+
+function confirmNewRun() {
+  if (confirm("Start a new run? This will clear all current results, notes and checkboxes.")) {
+    localStorage.removeItem(LS_KEY);
+    S = {
+      activeSection: "paynow",
+      activeTcIdx: 0,
+      view: "run",
+      results: {},
+      notes: {},
+      expanded: {},
+      checks: {},
+      valPayload: "",
+      valSchema: "paynow_success",
+      valResults: null
+    };
+    render();
+  }
+}
+
+// Show a small persistent indicator that state is saved
+function showSaved() {
+  const el = document.getElementById("save-indicator");
+  if (el) {
+    el.style.opacity = "1";
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.opacity = "0"; }, 1200);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
