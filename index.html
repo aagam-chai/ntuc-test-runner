@@ -216,8 +216,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
     <nav class="sidebar-sections" id="sidebar-nav"></nav>
     <div class="sidebar-bottom">
       <div class="sidebar-stats" id="sidebar-stats"></div>
-      <button class="btn btn-dark" style="width:100%;margin-top:10px;justify-content:center" onclick="openReport()">📄 Generate Report</button>
-      <button class="btn" style="width:100%;margin-top:6px;justify-content:center;color:var(--fail);border-color:var(--fail-border)" onclick="confirmNewRun()">🔄 New Run</button>
+      <button class="btn" style="width:100%;margin-top:10px;justify-content:center;background:#2563eb;color:#fff;border-color:#2563eb;font-weight:600" onclick="openReport()">📄 Generate Report</button>
+      <button class="btn" style="width:100%;margin-top:6px;justify-content:center;background:#dc2626;color:#fff;border-color:#dc2626;font-weight:600" onclick="confirmNewRun()">🔄 New Run</button>
     </div>
   </aside>
 
@@ -241,7 +241,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
           <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
           <div class="prog-label" id="prog-label">0 / 0</div>
         </div>
-        <button class="btn btn-dark" onclick="openReport()">📄 Report</button>
+        <button class="btn" style="background:#2563eb;color:#fff;border-color:#2563eb;font-weight:600" onclick="openReport()">📄 Report</button>
       </div>
     </div>
 
@@ -269,7 +269,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="copyReport()">📋 Copy</button>
-      <button class="btn btn-dark" onclick="downloadReport()">⬇ Download .txt</button>
+      <button class="btn" style="background:#2563eb;color:#fff;border-color:#2563eb;font-weight:600" onclick="downloadReport()">⬇ Download Report</button>
+      <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:600" onclick="downloadIssuesReport()">⚠ Download Issues Report</button>
+      <button class="btn" style="background:#7c4dcc;color:#fff;border-color:#7c4dcc;font-weight:600" onclick="downloadFullAssessment()">📦 Download Full Assessment</button>
     </div>
   </div>
 </div>
@@ -472,169 +474,275 @@ const TEST_DATA = {
 };
 
 const WEBHOOK_SCHEMAS = {
+
   paynow_success: {
-    label: "PayNow — Success",
+    label: "PayNow - Success (verified Prod)",
+    paymentType: "onetime",
     required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"PAYNOW", label:"OneTimePaymentMethod = PAYNOW"},
-      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
-      {field:"ErrorCode", value:"", label:"ErrorCode is empty"},
-      {field:"ErrorDescription", value:"", label:"ErrorDescription is empty"}
+      {field:"OneTimePaymentMethod",  value:"PAYNOW",   label:"OneTimePaymentMethod = PAYNOW"},
+      {field:"OneTimePaymentStatus",  value:"Success",  label:"OneTimePaymentStatus = Success"},
+      {field:"RecurringPaymentStatus",value:"NA",       label:"RecurringPaymentStatus = NA (one-time only)"},
+      {field:"ErrorCode",             value:"",         label:"ErrorCode is empty"},
+      {field:"ErrorDescription",      value:"",         label:"ErrorDescription is empty"}
     ]
   },
+
   paynow_fail: {
-    label: "PayNow — Failure",
+    label: "PayNow - Failure (verified Prod)",
+    paymentType: "onetime",
     required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"PAYNOW", label:"OneTimePaymentMethod = PAYNOW"},
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"ErrorCode", value:"4000", label:"ErrorCode = 4000"},
+      {field:"OneTimePaymentMethod",  value:"PAYNOW",   label:"OneTimePaymentMethod = PAYNOW"},
+      {field:"OneTimePaymentStatus",  value:"Failed",   label:"OneTimePaymentStatus = Failed"},
+      {field:"ErrorCode",             value:"4000",     label:"ErrorCode = 4000"}
     ]
   },
+
   paynow_invalid: {
-    label: "PayNow — Invalid Amount",
-    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
+    label: "PayNow - Invalid Amount",
+    paymentType: "onetime",
+    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","ErrorCode","ErrorDescription"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"ErrorCode", value:"5000", label:"ErrorCode = 5000"},
-      {field:"OneTimePaymentMethod", value:"PAYNOW", label:"OneTimePaymentMethod = PAYNOW"}
+      {field:"OneTimePaymentStatus",  value:"Failed",   label:"OneTimePaymentStatus = Failed"},
+      {field:"ErrorCode",             value:"5000",     label:"ErrorCode = 5000"},
+      {field:"ErrorDescription",      value:"numeric value out of bounds", label:"ErrorDescription contains numeric value out of bounds", contains:true}
     ]
   },
+
   paynow_expire: {
-    label: "PayNow — Expiry",
+    label: "PayNow - Expiry",
+    paymentType: "onetime",
     required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Cancelled", label:"OneTimePaymentStatus = Cancelled"},
-      {field:"ErrorCode", value:"4072", label:"ErrorCode = 4072"},
-      {field:"ErrorDescription", value:"Transaction expired", label:"ErrorDescription contains 'Transaction expired'", contains:true}
+      {field:"OneTimePaymentStatus",  value:"Cancelled", label:"OneTimePaymentStatus = Cancelled"},
+      {field:"ErrorCode",             value:"4072",      label:"ErrorCode = 4072"},
+      {field:"ErrorDescription",      value:"Transaction expired", label:"ErrorDescription contains Transaction expired", contains:true}
     ]
   },
+
   mpgs_success: {
-    label: "MPGS — Success",
+    label: "MPGS - Single Payment Success (verified Prod)",
+    paymentType: "onetime",
     required: ["ClientOrderId","PGOrderId","OneTimeMerchantId","OneTimePaymentMethod","OneTimeCardExpiryDate","OneTimeCardType","OneTimePaymentStatus","OrderAmount"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
-      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
-      {field:"ErrorCode", value:"", label:"ErrorCode is empty"}
+      {field:"OneTimePaymentMethod",   value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
+      {field:"OneTimePaymentStatus",   value:"Success",     label:"OneTimePaymentStatus = Success"},
+      {field:"RecurringPaymentStatus", value:"NA",          label:"RecurringPaymentStatus = NA (one-time only)"},
+      {field:"OneTimeMerchantId",      value:"",            label:"OneTimeMerchantId is present", notEmpty:true},
+      {field:"OneTimeCardType",        value:"MASTERCARD",  label:"OneTimeCardType = MASTERCARD"},
+      {field:"OneTimeCardExpiryDate",  value:"",            label:"OneTimeCardExpiryDate is present", notEmpty:true},
+      {field:"Token",                  value:"",            label:"Token is empty (single payment, no tokenization)"},
+      {field:"ErrorCode",              value:"",            label:"ErrorCode is empty"},
+      {field:"ErrorDescription",       value:"",            label:"ErrorDescription is empty"}
     ]
   },
+
   mpgs_fail: {
-    label: "MPGS — Failure",
-    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
+    label: "MPGS - Failure (verified Prod)",
+    paymentType: "onetime",
+    required: ["ClientOrderId","PGOrderId","OneTimeMerchantId","OneTimePaymentMethod","OneTimeCardExpiryDate","OneTimeCardType","OneTimePaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"}
+      {field:"OneTimePaymentMethod",  value:"CARDPAYMENT",           label:"OneTimePaymentMethod = CARDPAYMENT"},
+      {field:"OneTimePaymentStatus",  value:"Failed",                label:"OneTimePaymentStatus = Failed"},
+      {field:"OneTimeMerchantId",     value:"",                      label:"OneTimeMerchantId is present", notEmpty:true},
+      {field:"OneTimeCardType",       value:"MASTERCARD",            label:"OneTimeCardType = MASTERCARD"},
+      {field:"ErrorCode",             value:"INVALID_TRANSACTION_ERROR", label:"ErrorCode = INVALID_TRANSACTION_ERROR"},
+      {field:"ErrorDescription",      value:"DO_NOT_PROCEED",        label:"ErrorDescription contains DO_NOT_PROCEED", contains:true},
+      {field:"Token",                 value:"",                      label:"Token is empty on failure"}
     ]
   },
+
   mpgs_recurring_success: {
-    label: "MPGS — Recurring Only Success",
+    label: "MPGS - Recurring Only Success (verified Prod)",
+    paymentType: "recurring",
     required: ["ClientOrderId","PGOrderId","RecurringMerchantId","RecurringPaymentMethod","RecurringCardType","RecurringPaymentStatus","Token","OrderAmount"],
     checks: [
+      {field:"OneTimePaymentStatus",   value:"NA",          label:"OneTimePaymentStatus = NA (recurring only)"},
       {field:"RecurringPaymentMethod", value:"CARDPAYMENT", label:"RecurringPaymentMethod = CARDPAYMENT"},
-      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
-      {field:"Token", value:"", label:"Token is present (tokenized card)", notEmpty:true},
-      {field:"OrderAmount", value:"0", label:"OrderAmount = 0"},
-      {field:"ErrorCode", value:"", label:"ErrorCode is empty"}
+      {field:"RecurringPaymentStatus", value:"Success",     label:"RecurringPaymentStatus = Success"},
+      {field:"RecurringMerchantId",    value:"",            label:"RecurringMerchantId is present", notEmpty:true},
+      {field:"RecurringCardType",      value:"MASTERCARD",  label:"RecurringCardType = MASTERCARD"},
+      {field:"Token",                  value:"",            label:"Token is present (tokenized card number)", notEmpty:true},
+      {field:"OrderAmount",            value:"0",           label:"OrderAmount = 0"},
+      {field:"ErrorCode",              value:"",            label:"ErrorCode is empty"},
+      {field:"OneTimeMerchantId",      value:"",            label:"OneTimeMerchantId is empty (recurring only)"},
+      {field:"OneTimePaymentMethod",   value:"",            label:"OneTimePaymentMethod is empty (recurring only)"}
     ]
   },
+
   mpgs_both_success: {
-    label: "MPGS — Recurring+OneTime Success",
+    label: "MPGS - Recurring+OneTime Success (verified Prod)",
+    paymentType: "both",
     required: ["ClientOrderId","PGOrderId","OneTimeMerchantId","OneTimePaymentMethod","OneTimeCardExpiryDate","OneTimeCardType","OneTimePaymentStatus","RecurringMerchantId","RecurringPaymentMethod","RecurringCardType","RecurringPaymentStatus","Token","OrderAmount"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
-      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"OneTimePaymentMethod",   value:"CARDPAYMENT", label:"OneTimePaymentMethod = CARDPAYMENT"},
+      {field:"OneTimePaymentStatus",   value:"Success",     label:"OneTimePaymentStatus = Success"},
+      {field:"OneTimeMerchantId",      value:"",            label:"OneTimeMerchantId is present", notEmpty:true},
+      {field:"OneTimeCardType",        value:"MASTERCARD",  label:"OneTimeCardType = MASTERCARD"},
+      {field:"OneTimeCardExpiryDate",  value:"",            label:"OneTimeCardExpiryDate is present", notEmpty:true},
       {field:"RecurringPaymentMethod", value:"CARDPAYMENT", label:"RecurringPaymentMethod = CARDPAYMENT"},
-      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
-      {field:"Token", value:"", label:"Token is present (tokenized card)", notEmpty:true},
-      {field:"ErrorCode", value:"", label:"ErrorCode is empty"}
+      {field:"RecurringPaymentStatus", value:"Success",     label:"RecurringPaymentStatus = Success"},
+      {field:"RecurringMerchantId",    value:"",            label:"RecurringMerchantId is present", notEmpty:true},
+      {field:"RecurringCardType",      value:"MASTERCARD",  label:"RecurringCardType = MASTERCARD"},
+      {field:"Token",                  value:"",            label:"Token is present (tokenized card number)", notEmpty:true},
+      {field:"ErrorCode",              value:"",            label:"ErrorCode is empty"},
+      {field:"ErrorDescription",       value:"",            label:"ErrorDescription is empty"}
     ]
   },
+
   egiro_success: {
-    label: "eGIRO — Success (Recurring)",
-    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","Token","OrderAmount","OneTimeAcctName","RecurringAcctName","OneTimeAcctNo","RecurringAcctNo","OneTimeBankCode","RecurringBankCode"],
+    label: "eGIRO - Recurring Only Success (verified Prod)",
+    paymentType: "recurring",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","RecurringPaymentMethod","RecurringPaymentStatus","OrderAmount","RecurringAcctName","RecurringAcctNo","RecurringBankCode","RecurringBranchCode","RecurringDDARefNo"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
-      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
-      {field:"OneTimePaymentMethod", value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
-      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
-      {field:"Token", value:"", label:"Token is present (not empty)", notEmpty:true}
+      {field:"OneTimePaymentStatus",   value:"NA",     label:"OneTimePaymentStatus = NA (recurring only)"},
+      {field:"RecurringPaymentStatus", value:"Success",label:"RecurringPaymentStatus = Success"},
+      {field:"RecurringPaymentMethod", value:"EGIRO",  label:"RecurringPaymentMethod = EGIRO"},
+      {field:"OneTimePaymentMethod",   value:"",       label:"OneTimePaymentMethod is empty (recurring only)"},
+      {field:"Token",                  value:"",       label:"Token is empty (eGIRO never uses token)"},
+      {field:"OrderAmount",            value:"0",      label:"OrderAmount = 0"},
+      {field:"ErrorCode",              value:"",       label:"ErrorCode is empty"},
+      {field:"RecurringAcctName",      value:"",       label:"RecurringAcctName is present", notEmpty:true},
+      {field:"RecurringAcctNo",        value:"",       label:"RecurringAcctNo is present", notEmpty:true},
+      {field:"RecurringBankCode",      value:"7171",   label:"RecurringBankCode = 7171"},
+      {field:"RecurringDDARefNo",      value:"",       label:"RecurringDDARefNo is present", notEmpty:true},
+      {field:"OneTimeAcctName",        value:"",       label:"OneTimeAcctName is empty (recurring only)"},
+      {field:"OneTimeAcctNo",          value:"",       label:"OneTimeAcctNo is empty (recurring only)"}
     ]
   },
+
   egiro_fail: {
-    label: "eGIRO — Failure",
-    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription"],
+    label: "eGIRO - Failure (verified Prod)",
+    paymentType: "both",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"}
+      {field:"OneTimePaymentStatus",   value:"Failed",                    label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Failed",                    label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode",              value:"PAYMENT_AUTHORIZATION_ERROR", label:"ErrorCode = PAYMENT_AUTHORIZATION_ERROR"},
+      {field:"ErrorDescription",       value:"PAYER_REJECTED_AUTHORIZATION", label:"ErrorDescription contains PAYER_REJECTED_AUTHORIZATION", contains:true},
+      {field:"Token",                  value:"",                          label:"Token is empty (eGIRO never uses token)"},
+      {field:"OneTimeAcctName",        value:"",                          label:"OneTimeAcctName is empty on failure"},
+      {field:"RecurringAcctName",      value:"",                          label:"RecurringAcctName is empty on failure"},
+      {field:"OneTimeDDARefNo",        value:"",                          label:"OneTimeDDARefNo is empty on failure"},
+      {field:"RecurringDDARefNo",      value:"",                          label:"RecurringDDARefNo is empty on failure"}
     ]
   },
+
   egiro_expire: {
-    label: "eGIRO — Expiry / Timeout",
-    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription"],
+    label: "eGIRO - Recurring Only Expiry (verified Prod)",
+    paymentType: "recurring",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","RecurringPaymentMethod","RecurringPaymentStatus","OrderAmount","ErrorCode","ErrorDescription"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
-      {field:"ErrorCode", value:"4072", label:"ErrorCode = 4072"},
-      {field:"ErrorDescription", value:"PAYER_AUTHORIZATION_TIMEOUT", label:"ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT", contains:true}
+      {field:"OneTimePaymentStatus",   value:"NA",                  label:"OneTimePaymentStatus = NA (recurring only)"},
+      {field:"RecurringPaymentStatus", value:"Failed",              label:"RecurringPaymentStatus = Failed"},
+      {field:"RecurringPaymentMethod", value:"EGIRO",               label:"RecurringPaymentMethod = EGIRO"},
+      {field:"ErrorCode",              value:"TRANSACTION_EXPIRED", label:"ErrorCode = TRANSACTION_EXPIRED"},
+      {field:"ErrorDescription",       value:"PAYER_AUTHORIZATION_TIMEOUT", label:"ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT", contains:true},
+      {field:"Token",                  value:"",                    label:"Token is empty (eGIRO never uses token)"},
+      {field:"OrderAmount",            value:"0",                   label:"OrderAmount = 0"},
+      {field:"RecurringAcctName",      value:"",                    label:"RecurringAcctName is empty on expiry"},
+      {field:"RecurringAcctNo",        value:"",                    label:"RecurringAcctNo is empty on expiry"}
     ]
   },
+
   egiro_magic: {
-    label: "eGIRO — Magic Number (Amount=72)",
-    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","Token","OrderAmount"],
+    label: "eGIRO - Magic Number Amount=72 (verified Prod)",
+    paymentType: "both",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","OrderAmount","ErrorCode","ErrorDescription","OneTimeAcctName","RecurringAcctName","OneTimeAcctNo","RecurringAcctNo","OneTimeBankCode","RecurringBankCode","OneTimeDDARefNo","RecurringDDARefNo"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
-      {field:"Token", value:"", label:"Token is present (not empty)", notEmpty:true},
-      {field:"OrderAmount", value:"72", label:"OrderAmount = 72"}
+      {field:"OneTimePaymentStatus",   value:"Failed",           label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Success",          label:"RecurringPaymentStatus = Success"},
+      {field:"OneTimePaymentMethod",   value:"FASTCOL",          label:"OneTimePaymentMethod = FASTCOL"},
+      {field:"RecurringPaymentMethod", value:"EGIRO",            label:"RecurringPaymentMethod = EGIRO"},
+      {field:"OrderAmount",            value:"72",               label:"OrderAmount = 72"},
+      {field:"ErrorCode",              value:"FUNDS_LIMIT_ERROR",label:"ErrorCode = FUNDS_LIMIT_ERROR"},
+      {field:"ErrorDescription",       value:"INSUFFICIENT_FUNDS",label:"ErrorDescription contains INSUFFICIENT_FUNDS", contains:true},
+      {field:"Token",                  value:"",                 label:"Token is empty (eGIRO never uses token)"},
+      {field:"OneTimeAcctName",        value:"",                 label:"OneTimeAcctName is present", notEmpty:true},
+      {field:"RecurringAcctName",      value:"",                 label:"RecurringAcctName is present", notEmpty:true},
+      {field:"OneTimeAcctNo",          value:"",                 label:"OneTimeAcctNo is present", notEmpty:true},
+      {field:"RecurringBankCode",      value:"7171",             label:"RecurringBankCode = 7171"}
     ]
   },
+
   egiro_both_success: {
-    label: "eGIRO — Recurring+OneTime Success",
-    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","Token","OrderAmount","OneTimeAcctName","RecurringAcctName","OneTimeAcctNo","RecurringAcctNo","OneTimeBankCode","RecurringBankCode","OneTimeBranchCode","RecurringBranchCode","OneTimeDDARefNo","RecurringDDARefNo"],
+    label: "eGIRO - Recurring+OneTime Success (verified Prod)",
+    paymentType: "both",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","OrderAmount","OneTimeAcctName","RecurringAcctName","OneTimeAcctNo","RecurringAcctNo","OneTimeBankCode","RecurringBankCode","OneTimeBranchCode","RecurringBranchCode","OneTimeDDARefNo","RecurringDDARefNo"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
-      {field:"OneTimePaymentStatus", value:"Success", label:"OneTimePaymentStatus = Success"},
-      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
+      {field:"OneTimePaymentMethod",   value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
+      {field:"OneTimePaymentStatus",   value:"Success", label:"OneTimePaymentStatus = Success"},
+      {field:"RecurringPaymentMethod", value:"EGIRO",   label:"RecurringPaymentMethod = EGIRO"},
       {field:"RecurringPaymentStatus", value:"Success", label:"RecurringPaymentStatus = Success"},
-      {field:"Token", value:"", label:"Token is present (not empty)", notEmpty:true},
-      {field:"ErrorCode", value:"", label:"ErrorCode is empty"},
-      {field:"ErrorDescription", value:"", label:"ErrorDescription is empty"}
+      {field:"Token",                  value:"",        label:"Token is empty (eGIRO never uses token)"},
+      {field:"ErrorCode",              value:"",        label:"ErrorCode is empty"},
+      {field:"ErrorDescription",       value:"",        label:"ErrorDescription is empty"},
+      {field:"OneTimeAcctName",        value:"",        label:"OneTimeAcctName is present", notEmpty:true},
+      {field:"RecurringAcctName",      value:"",        label:"RecurringAcctName is present", notEmpty:true},
+      {field:"OneTimeAcctNo",          value:"",        label:"OneTimeAcctNo is present", notEmpty:true},
+      {field:"RecurringAcctNo",        value:"",        label:"RecurringAcctNo is present", notEmpty:true},
+      {field:"OneTimeBankCode",        value:"7171",    label:"OneTimeBankCode = 7171"},
+      {field:"RecurringBankCode",      value:"7171",    label:"RecurringBankCode = 7171"},
+      {field:"OneTimeDDARefNo",        value:"",        label:"OneTimeDDARefNo is present", notEmpty:true},
+      {field:"RecurringDDARefNo",      value:"",        label:"RecurringDDARefNo is present", notEmpty:true}
     ]
   },
+
   egiro_both_fail: {
-    label: "eGIRO — Recurring+OneTime Failure",
-    required: ["ClientOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
+    label: "eGIRO - Recurring+OneTime Failure (verified Prod)",
+    paymentType: "both",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentMethod","OneTimePaymentStatus","RecurringPaymentMethod","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
     checks: [
-      {field:"OneTimePaymentMethod", value:"FASTCOL", label:"OneTimePaymentMethod = FASTCOL"},
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
-      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
-      {field:"ErrorCode", value:"4080", label:"ErrorCode = 4080"}
+      {field:"OneTimePaymentMethod",   value:"FASTCOL",                   label:"OneTimePaymentMethod = FASTCOL"},
+      {field:"OneTimePaymentStatus",   value:"Failed",                    label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentMethod", value:"EGIRO",                     label:"RecurringPaymentMethod = EGIRO"},
+      {field:"RecurringPaymentStatus", value:"Failed",                    label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode",              value:"PAYMENT_AUTHORIZATION_ERROR",label:"ErrorCode = PAYMENT_AUTHORIZATION_ERROR"},
+      {field:"ErrorDescription",       value:"PAYER_REJECTED_AUTHORIZATION",label:"ErrorDescription contains PAYER_REJECTED_AUTHORIZATION", contains:true},
+      {field:"Token",                  value:"",                          label:"Token is empty (eGIRO never uses token)"},
+      {field:"OneTimeAcctName",        value:"",                          label:"OneTimeAcctName is empty on failure"},
+      {field:"RecurringAcctName",      value:"",                          label:"RecurringAcctName is empty on failure"},
+      {field:"OneTimeDDARefNo",        value:"",                          label:"OneTimeDDARefNo is empty on failure"},
+      {field:"RecurringDDARefNo",      value:"",                          label:"RecurringDDARefNo is empty on failure"}
     ]
   },
+
   egiro_both_expire: {
-    label: "eGIRO — Recurring+OneTime Expiry",
-    required: ["ClientOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
+    label: "eGIRO - Recurring+OneTime Expiry",
+    paymentType: "both",
+    noToken: true,
+    required: ["ClientOrderId","PGOrderId","OneTimePaymentStatus","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
     checks: [
-      {field:"OneTimePaymentStatus", value:"Failed", label:"OneTimePaymentStatus = Failed"},
-      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
-      {field:"ErrorCode", value:"4072", label:"ErrorCode = 4072"},
-      {field:"ErrorDescription", value:"PAYER_AUTHORIZATION_TIMEOUT", label:"ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT", contains:true}
+      {field:"OneTimePaymentStatus",   value:"Failed",              label:"OneTimePaymentStatus = Failed"},
+      {field:"RecurringPaymentStatus", value:"Failed",              label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode",              value:"TRANSACTION_EXPIRED", label:"ErrorCode = TRANSACTION_EXPIRED"},
+      {field:"ErrorDescription",       value:"PAYER_AUTHORIZATION_TIMEOUT", label:"ErrorDescription contains PAYER_AUTHORIZATION_TIMEOUT", contains:true},
+      {field:"Token",                  value:"",                    label:"Token is empty (eGIRO never uses token)"}
     ]
   },
+
   egiro_no_dda: {
-    label: "eGIRO — Missing DDARef",
+    label: "eGIRO - Missing DDARef",
+    paymentType: "recurring",
+    noToken: true,
     required: ["ClientOrderId","RecurringPaymentMethod","RecurringPaymentStatus","ErrorCode","ErrorDescription","OrderAmount"],
     checks: [
-      {field:"RecurringPaymentMethod", value:"EGIRO", label:"RecurringPaymentMethod = EGIRO"},
-      {field:"RecurringPaymentStatus", value:"Failed", label:"RecurringPaymentStatus = Failed"},
-      {field:"ErrorCode", value:"4001", label:"ErrorCode = 4001"},
-      {field:"ErrorDescription", value:"DDARef is missing", label:"ErrorDescription contains DDARef is missing", contains:true},
-      {field:"Token", value:"", label:"Token is empty (no token generated)"}
+      {field:"RecurringPaymentMethod", value:"EGIRO",                label:"RecurringPaymentMethod = EGIRO"},
+      {field:"RecurringPaymentStatus", value:"Failed",               label:"RecurringPaymentStatus = Failed"},
+      {field:"ErrorCode",              value:"4001",                 label:"ErrorCode = 4001"},
+      {field:"ErrorDescription",       value:"DDARef is missing",    label:"ErrorDescription contains DDARef is missing", contains:true},
+      {field:"Token",                  value:"",                     label:"Token is empty (eGIRO never uses token)"}
     ]
   }
-};
 
+};
 const LS_KEY = "ntuc_runner_state";
 
 function loadState() {
@@ -650,6 +758,8 @@ function loadState() {
         notes: parsed.notes || {},
         expanded: parsed.expanded || {},
         checks: parsed.checks || {},
+        webhookPayloads: parsed.webhookPayloads || {},
+        webhookValidations: parsed.webhookValidations || {},
         valPayload: parsed.valPayload || "",
         valSchema: parsed.valSchema || "paynow_success",
         valResults: null
@@ -664,6 +774,8 @@ function loadState() {
     notes: {},
     expanded: {},
     checks: {},
+    webhookPayloads: {},
+    webhookValidations: {},
     valPayload: "",
     valSchema: "paynow_success",
     valResults: null
@@ -680,6 +792,8 @@ function saveState() {
       notes: S.notes,
       expanded: S.expanded,
       checks: S.checks,
+      webhookPayloads: S.webhookPayloads,
+      webhookValidations: S.webhookValidations,
       valPayload: S.valPayload,
       valSchema: S.valSchema
     };
@@ -884,7 +998,16 @@ function renderTcCard(tc, isCurrent){
       ${result?`<button class="btn btn-sm reset-btn" onclick="clearResult('${tc.id}')">↺ Reset</button>`:""}
     </div>
     <textarea class="note-textarea" placeholder="Notes / deviation details (optional)…" onchange="setNote('${tc.id}',this.value)">${e(note)}</textarea>`;
-    if(tc.cbType) bodyHtml+=`<div style="margin-top:10px"><button class="btn btn-sm" onclick="openWebhookForTC('${tc.cbType}')">🔗 Validate webhook for this test →</button></div>`;
+    if (tc.webhook || tc.cbType) {
+      const savedPayload = S.webhookPayloads[tc.id] || "";
+      const savedValidation = S.webhookValidations[tc.id] || null;
+      bodyHtml += `<div style="margin-top:8px" id="wv-wrap-${tc.id}">
+        <div style="font-size:11px;font-weight:600;color:#7c4dcc;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">🔔 Paste received webhook/callback JSON ${tc.cbType ? '<span style="font-size:10px;font-weight:400;color:#7c4dcc;text-transform:none">(auto-validated on paste)</span>' : ''}</div>
+        <textarea class="note-textarea" style="font-family:monospace;font-size:11px;min-height:80px;border-color:rgba(124,77,204,0.25)" placeholder='Paste webhook JSON here — auto-validates instantly…' oninput="onWebhookPaste('${tc.id}',this.value)">${e(savedPayload)}</textarea>
+        <div id="wv-result-${tc.id}">${savedValidation ? renderInlineValidation(savedValidation) : ''}</div>
+      </div>`;
+    }
+
     bodyHtml+=`</div>`;
   }
 
@@ -907,17 +1030,7 @@ function renderWebhook(){
   const schemaOpts=Object.entries(WEBHOOK_SCHEMAS).map(([k,v])=>`<option value="${k}" ${S.valSchema===k?"selected":""}>${v.label}</option>`).join("");
   let resultsHtml="";
   if(S.valResults){
-    const all=S.valResults;
-    const failCount=all.filter(r=>r.status==="fail").length;
-    const warnCount=all.filter(r=>r.status==="warn").length;
-    const summCls=failCount>0?"vs-fail":warnCount>0?"vs-fail":"vs-pass";
-    const summMsg=failCount>0?`❌ ${failCount} check(s) failed`:`✅ All checks passed`;
-    resultsHtml=`<div class="val-summary ${summCls}">${summMsg} · ${all.length} total checks</div>`;
-    resultsHtml+=all.map(r=>{
-      const cls=r.status==="pass"?"vri-pass":r.status==="warn"?"vri-warn":"vri-fail";
-      const icon=r.status==="pass"?"✓":r.status==="warn"?"⚠":"✗";
-      return `<div class="val-result-item ${cls}"><span class="vri-icon">${icon}</span><div><span class="vri-label">${e(r.label)}</span>${r.found!==undefined?`<span class="vri-val">→ found: "${e(String(r.found))}"</span>`:""}${r.msg?`<span class="vri-val"> — ${e(r.msg)}</span>`:""}</div></div>`;
-    }).join("");
+    resultsHtml = renderInlineValidation({schema: WEBHOOK_SCHEMAS[S.valSchema]?.label, results: S.valResults, jsonUsed: S.valResults._multiNote||null});
   }
 
   return `<div class="validator-panel">
@@ -955,25 +1068,22 @@ function attachWebhookEvents(){
 function runValidation(){
   S.valPayload=document.getElementById("webhook-paste")?.value||"";
   S.valSchema=document.getElementById("val-schema-select")?.value||"paynow_success";
-  let parsed;
-  try{ parsed=JSON.parse(S.valPayload); }
-  catch(err){ S.valResults=[{status:"fail",label:"JSON parse error",msg:err.message}]; render(); return; }
+  const jsons = extractAllJsons(S.valPayload);
+  if(jsons.length===0){
+    S.valResults=[{status:"fail",label:"JSON parse error",msg:"No valid JSON found in pasted text"}];
+    render(); return;
+  }
   const schema=WEBHOOK_SCHEMAS[S.valSchema];
   if(!schema){ S.valResults=[{status:"fail",label:"Unknown schema"}]; render(); return; }
-  const results=[];
-  schema.required.forEach(field=>{
-    const present=parsed.hasOwnProperty(field);
-    results.push({status:present?"pass":"fail",label:`Field present: ${field}`,found:present?parsed[field]:undefined,msg:present?"":`Missing required field`});
-  });
-  schema.checks.forEach(chk=>{
-    const val=parsed[chk.field];
-    let ok=false;
-    if(chk.notEmpty) ok=val!==undefined&&val!==null&&val!=="";
-    else if(chk.contains) ok=val!==undefined&&String(val).toLowerCase().includes(String(chk.value).toLowerCase());
-    else ok=val===chk.value;
-    results.push({status:ok?"pass":"fail",label:chk.label,found:val,msg:ok?"":chk.notEmpty?`Expected non-empty value`:`Expected "${chk.value}", got "${val}"`});
-  });
-  S.valResults=results;
+  let bestJson=jsons[0];
+  if(jsons.length>1){
+    const scores=jsons.map(j=>schema.required.filter(f=>j[f]&&j[f]!=="").length);
+    bestJson=jsons[scores.indexOf(Math.max(...scores))];
+  }
+  const validation=runSchemaValidation(bestJson,S.valSchema);
+  if(jsons.length>1) validation.results._multiNote=`Multiple webhooks detected — validated most relevant (${jsons.length} found)`;
+  S.valResults=validation.results;
+  S.valResults._multiNote=jsons.length>1?`Multiple webhooks detected — validated most relevant (${jsons.length} found)`:null;
   render();
 }
 
@@ -991,6 +1101,217 @@ function setResult(id,val){
 }
 function clearResult(id){ delete S.results[id]; delete S.checks[id]; saveState(); render(); }
 function setNote(id,val){ S.notes[id]=val; saveState(); }
+function setWebhookPayload(id,val){ S.webhookPayloads[id]=val; saveState(); }
+
+function onWebhookPaste(tcId, val) {
+  S.webhookPayloads[tcId] = val;
+  const tc = TEST_DATA.sections.flatMap(s => s.cases).find(c => c.id === tcId);
+  if (!tc || !tc.cbType) { saveState(); return; }
+
+  // Extract all JSON objects from pasted text (handles multiple webhooks)
+  const jsons = extractAllJsons(val);
+  if (jsons.length === 0) {
+    S.webhookValidations[tcId] = null;
+    saveState();
+    document.getElementById("wv-result-" + tcId).innerHTML = "";
+    return;
+  }
+
+  // Pick the best matching JSON (most relevant fields non-empty)
+  const schema = WEBHOOK_SCHEMAS[tc.cbType];
+  let bestJson = jsons[0];
+  if (jsons.length > 1 && schema) {
+    // Score each json by how many required fields are present and non-empty
+    const scores = jsons.map(j => schema.required.filter(f => j[f] && j[f] !== "").length);
+    const bestIdx = scores.indexOf(Math.max(...scores));
+    bestJson = jsons[bestIdx];
+  }
+
+  const validation = runSchemaValidation(bestJson, tc.cbType);
+  validation.jsonUsed = jsons.length > 1 ? `Multiple webhooks detected — validated against the most relevant one (${jsons.length} found)` : null;
+  S.webhookValidations[tcId] = validation;
+  saveState();
+  document.getElementById("wv-result-" + tcId).innerHTML = renderInlineValidation(validation);
+}
+
+function extractAllJsons(text) {
+  const results = [];
+  let depth = 0, start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "{") { if (depth === 0) start = i; depth++; }
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        try { results.push(JSON.parse(text.slice(start, i+1))); } catch(e) {}
+        start = -1;
+      }
+    }
+  }
+  return results;
+}
+
+function runSchemaValidation(parsed, schemaKey) {
+  const schema = WEBHOOK_SCHEMAS[schemaKey];
+  if (!schema) return {error: "Unknown schema: " + schemaKey};
+
+  const pt = schema.paymentType || "both"; // "onetime" | "recurring" | "both"
+  const noToken = !!schema.noToken;        // eGIRO never has token
+
+  // Determine which field prefixes are active based on paymentType
+  const hasOneTime  = pt === "onetime" || pt === "both";
+  const hasRecurring = pt === "recurring" || pt === "both";
+
+  function shouldSkipField(fieldName) {
+    // Skip OneTime fields if this is recurring-only
+    if (!hasOneTime  && fieldName.startsWith("OneTime") && fieldName !== "OneTimePaymentStatus") return true;
+    // Skip Recurring fields if this is onetime-only
+    if (!hasRecurring && fieldName.startsWith("Recurring") && fieldName !== "RecurringPaymentStatus") return true;
+    // Skip Token check if noToken (eGIRO)
+    if (noToken && fieldName === "Token" && !schema.checks.find(c => c.field === "Token")) return true;
+    return false;
+  }
+
+  const results = [];
+  const checksWithFields = [];
+
+  schema.required.forEach(field => {
+    if (shouldSkipField(field)) return; // skip irrelevant required fields
+    const present = parsed.hasOwnProperty(field);
+    results.push({status: present?"pass":"fail", label: "Field present: " + field, found: present ? parsed[field] : undefined, msg: present ? "" : "Missing required field"});
+  });
+
+  schema.checks.forEach(chk => {
+    if (shouldSkipField(chk.field)) return; // skip irrelevant checks
+    const val = parsed[chk.field];
+    let ok = false;
+    if (chk.notEmpty) ok = val !== undefined && val !== null && val !== "";
+    else if (chk.contains) ok = val !== undefined && String(val).toLowerCase().includes(String(chk.value).toLowerCase());
+    else ok = val === chk.value;
+    const result = {status: ok?"pass":"fail", label: chk.label, found: val, msg: ok ? "" : chk.notEmpty ? "Expected non-empty value" : "Expected \"" + chk.value + "\", got \"" + val + "\""};
+    results.push(result);
+    checksWithFields.push({...chk, status: ok?"pass":"fail"});
+  });
+
+  return {schema: schema.label, _schemaKey: schemaKey, _parsed: parsed, _checks: checksWithFields, _paymentType: pt, _noToken: noToken, results};
+}
+
+function renderInlineValidation(validation) {
+  if (!validation || !validation.results) return "";
+  const results = validation.results;
+  const failCount = results.filter(r => r.status === "fail").length;
+  const passCount = results.filter(r => r.status === "pass").length;
+  const summBg = failCount > 0 ? "rgba(192,57,43,0.08)" : "rgba(26,122,74,0.08)";
+  const summColor = failCount > 0 ? "var(--fail)" : "var(--pass)";
+  const summMsg = failCount > 0 ? "⚠ " + failCount + " mismatch(es) · " + passCount + " matched" : "✓ All " + passCount + " fields matched";
+
+  let html = '<div style="margin-top:10px;border-radius:var(--radius);overflow:hidden;border:0.5px solid rgba(124,77,204,0.25)">';
+
+  // Header
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:' + summBg + '">';
+  html += '<span style="font-size:12px;font-weight:600;color:' + summColor + '">' + summMsg + '</span>';
+  html += '<span style="font-size:10px;color:var(--text3)">' + e(validation.schema||"") + '</span>';
+  html += '</div>';
+
+  if (validation.jsonUsed) {
+    html += '<div style="font-size:11px;padding:5px 12px;background:rgba(124,77,204,0.06);color:#7c4dcc;border-bottom:0.5px solid rgba(124,77,204,0.15)">';
+    html += '⚡ ' + e(validation.jsonUsed) + '</div>';
+  }
+  // Show payment type context banner
+  if (validation._paymentType) {
+    const ptLabel = validation._paymentType === "onetime" ? "One-Time payment only — Recurring fields not validated"
+                  : validation._paymentType === "recurring" ? "Recurring payment only — OneTime fields not validated"
+                  : "Both OneTime + Recurring fields validated";
+    const noTkLabel = validation._noToken ? " · Token field not expected (eGIRO)" : "";
+    html += '<div style="font-size:11px;padding:5px 12px;background:rgba(26,122,74,0.05);color:var(--pass);border-bottom:0.5px solid var(--border)">';
+    html += 'ℹ ' + ptLabel + noTkLabel + '</div>';
+  }
+
+  // Build a lookup: fieldName -> {expectedVal, status, msg}
+  const checkLookup = {};
+  const presenceFailures = [];
+  results.forEach(r => {
+    if (r.label.startsWith("Field present:")) {
+      if (r.status === "fail") presenceFailures.push(r.label.replace("Field present: ",""));
+      return;
+    }
+    // Map check back to field — find which field this check belongs to
+    // checks have field property stored in validation._checks
+  });
+
+  // Use _checks from validation object if available (we store them during runSchemaValidation)
+  const checksWithFields = validation._checks || [];
+  checksWithFields.forEach(c => {
+    checkLookup[c.field] = c;
+  });
+
+  // Column headers
+  html += '<div style="display:grid;grid-template-columns:200px 1fr 1fr 28px;border-bottom:1px solid var(--border)">';
+  html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);padding:7px 10px;background:var(--bg2);border-right:0.5px solid var(--border)">Field</div>';
+  html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--pass);padding:7px 10px;background:rgba(26,122,74,0.05);border-right:0.5px solid var(--border)">✓ Expected (Prod benchmark)</div>';
+  html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7c4dcc;padding:7px 10px;background:rgba(124,77,204,0.05);border-right:0.5px solid var(--border)">Received</div>';
+  html += '<div style="padding:7px 4px;background:var(--bg2)"></div>';
+  html += '</div>';
+
+  // ALL fields from the received JSON — nothing hidden
+  const allFields = Object.keys(validation._parsed || {});
+  // Also add any required fields not in received JSON
+  const schema = WEBHOOK_SCHEMAS[validation._schemaKey];
+  if (schema) {
+    schema.required.forEach(f => { if (!allFields.includes(f)) allFields.push(f); });
+  }
+
+  allFields.forEach(field => {
+    const receivedRaw = validation._parsed ? validation._parsed[field] : undefined;
+    const receivedVal = receivedRaw === undefined ? "(missing)" : receivedRaw === "" ? "(empty)" : String(receivedRaw);
+    const check = checkLookup[field];
+    const isMissing = receivedRaw === undefined;
+    const isRequired = schema && schema.required.includes(field);
+
+    let expectedVal = "—";
+    let rowStatus = "neutral"; // neutral = no check defined for this field
+    let icon = "";
+
+    if (check) {
+      // We have a specific check for this field
+      rowStatus = check.status;
+      if (check.notEmpty) expectedVal = "(non-empty)";
+      else if (check.contains) expectedVal = "contains: " + check.value;
+      else expectedVal = check.value === "" ? "(empty)" : check.value;
+      icon = check.status === "pass"
+        ? '<span style="color:var(--pass);font-size:14px">✓</span>'
+        : '<span style="color:var(--fail);font-size:14px">✗</span>';
+    } else if (isMissing && isRequired) {
+      rowStatus = "fail";
+      expectedVal = "(required)";
+      icon = '<span style="color:var(--fail);font-size:14px">✗</span>';
+    } else {
+      // Field present in JSON but no check — just show the value, neutral
+      icon = '<span style="color:var(--text3);font-size:11px">·</span>';
+    }
+
+    const rowBg = rowStatus === "fail" ? "rgba(192,57,43,0.04)" : "transparent";
+    const receivedColor = rowStatus === "fail" ? "color:var(--fail);font-weight:600"
+                        : rowStatus === "pass" ? "color:var(--text)"
+                        : "color:var(--text2)";
+    const expectedColor = rowStatus === "fail" ? "color:var(--pass)" : "color:var(--pass)";
+
+    html += '<div style="display:grid;grid-template-columns:200px 1fr 1fr 28px;border-bottom:0.5px solid var(--border);background:' + rowBg + '">';
+    html += '<div style="font-size:11px;font-family:monospace;padding:5px 10px;border-right:0.5px solid var(--border);color:var(--text2);word-break:break-all">' + e(field) + '</div>';
+    html += '<div style="font-size:11px;font-family:monospace;padding:5px 10px;background:rgba(26,122,74,0.02);border-right:0.5px solid var(--border);' + expectedColor + ';word-break:break-all">' + e(expectedVal) + '</div>';
+    html += '<div style="font-size:11px;font-family:monospace;padding:5px 10px;background:rgba(124,77,204,0.02);border-right:0.5px solid var(--border);' + receivedColor + ';word-break:break-all">' + e(receivedVal) + '</div>';
+    html += '<div style="padding:5px 4px;text-align:center">' + icon + '</div>';
+    html += '</div>';
+  });
+
+  if (presenceFailures.length > 0) {
+    html += '<div style="padding:6px 12px;background:rgba(192,57,43,0.06);font-size:11px;color:var(--fail);border-top:0.5px solid rgba(192,57,43,0.2)">';
+    html += '<strong>Missing required fields:</strong> ' + e(presenceFailures.join(", "));
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
 function toggleExpand(id){ S.expanded[id]=S.expanded[id]===false?true:false; saveState(); render(); }
 function prevCase(){ if(S.activeTcIdx>0){ S.activeTcIdx--; saveState(); render(); } }
 function nextCase(){ const cases=sectionCases(S.activeSection); if(S.activeTcIdx<cases.length-1){ S.activeTcIdx++; saveState(); render(); } }
@@ -1034,8 +1355,19 @@ function generateReport(){
     r+=`FAILURES\n--------\n`;
     fails.forEach(c=>{
       r+=`[${c.sectionName}] ${c.id} — ${c.scenario}\n`;
-      if(S.notes[c.id]) r+=`  Deviation : ${S.notes[c.id]}\n`;
-      if(c.knownBug) r+=`  Known bug : ${c.knownBug}\n`;
+      if(S.notes[c.id]) r+=`  Deviation  : ${S.notes[c.id]}\n`;
+      if(c.knownBug)    r+=`  Known bug  : ${c.knownBug}\n`;
+      if(S.webhookPayloads[c.id]) r+=`  Webhook    :\n${S.webhookPayloads[c.id].split("\n").map(l=>"    "+l).join("\n")}\n`;
+      if(S.webhookValidations[c.id]) {
+        const wv = S.webhookValidations[c.id];
+        const wFails = (wv.results||[]).filter(r=>r.status==="fail");
+        if(wFails.length>0){
+          r+=`  Webhook Validation Warnings (${wFails.length}):\n`;
+          wFails.forEach(f=>{ r+=`    ✗ ${f.label}${f.msg?" — "+f.msg:""}\n`; });
+        } else {
+          r+=`  Webhook Validation: ✓ All checks passed\n`;
+        }
+      }
       r+="\n";
     });
   }
@@ -1064,6 +1396,25 @@ function generateReport(){
     r+="\n";
   }
 
+  // Webhook payloads log — all cases where payload was captured
+  const capturedPayloads = allCases().filter(c => S.webhookPayloads[c.id] && S.webhookPayloads[c.id].trim());
+  if (capturedPayloads.length > 0) {
+    r += `\nWEBHOOK PAYLOADS CAPTURED (${capturedPayloads.length})\n`;
+    r += `${"-".repeat(40)}\n`;
+    capturedPayloads.forEach(c => {
+      r += `\n[${c.sectionName}] ${c.id} — ${c.scenario}\n`;
+      r += `Result: ${S.results[c.id] || "pending"}\n`;
+      if(S.webhookValidations[c.id]) {
+        const wv = S.webhookValidations[c.id];
+        const wFails = (wv.results||[]).filter(r=>r.status==="fail");
+        r += `Validation: ${wFails.length===0?"✓ All checks passed":"⚠ "+wFails.length+" check(s) failed"}\n`;
+        if(wFails.length>0) wFails.forEach(f=>{ r+=`  ✗ ${f.label}${f.msg?" — "+f.msg:""}\n`; });
+      }
+      r += `Payload:\n${S.webhookPayloads[c.id].split("\n").map(l=>"  "+l).join("\n")}\n`;
+    });
+    r += `\n`;
+  }
+
   r+=`OVERALL STATUS: ${status}\n`;
   r+=`=======================================`;
   return {report:r, status};
@@ -1084,6 +1435,303 @@ function closeReport(){ document.getElementById("report-modal").style.display="n
 function copyReport(){
   const txt=document.getElementById("report-content").textContent;
   navigator.clipboard.writeText(txt).catch(()=>{});
+}
+
+function downloadIssuesReport(){
+  const env=document.getElementById("env-select")?.value||"Dev";
+  const tester=document.getElementById("tester-input")?.value||"-";
+  const now=new Date();
+  const dateStr=now.toISOString().split("T")[0];
+  const timeStr=now.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
+  const SEP="-".repeat(65);
+  const HDR="=".repeat(65);
+
+  // Collect all issues
+  const failedCases   = allCases().filter(c=>S.results[c.id]==="fail");
+  const blockedCases  = allCases().filter(c=>S.results[c.id]==="blocked");
+  const pendingCases  = allCases().filter(c=>!S.results[c.id]);
+
+  // Webhook validation failures — cases where validation ran and has failures
+  const webhookFailCases = allCases().filter(c=>{
+    const wv=S.webhookValidations[c.id];
+    return wv && wv.results && wv.results.some(r=>r.status==="fail");
+  });
+
+  // Cases with webhook field but no payload pasted yet
+  const webhookMissingCases = allCases().filter(c=>{
+    return (c.webhook||c.cbType) && (!S.webhookPayloads[c.id]||!S.webhookPayloads[c.id].trim()) && S.results[c.id];
+  });
+
+  const totalIssues = failedCases.length + blockedCases.length + webhookFailCases.length + webhookMissingCases.length;
+
+  let doc="";
+  doc+=HDR+"\n";
+  doc+="  NTUC REGRESSION - ISSUES REPORT\n";
+  doc+=HDR+"\n\n";
+  doc+="Date        : "+dateStr+" "+timeStr+"\n";
+  doc+="Tester      : "+tester+"\n";
+  doc+="Environment : "+env+"\n";
+  doc+="Total Issues: "+totalIssues+"\n\n";
+  doc+="  Failed Cases           : "+failedCases.length+"\n";
+  doc+="  Blocked Cases          : "+blockedCases.length+"\n";
+  doc+="  Webhook Validation Fail: "+webhookFailCases.length+"\n";
+  doc+="  Webhook Not Captured   : "+webhookMissingCases.length+"\n";
+  doc+="  Pending (not run)      : "+pendingCases.length+"\n\n";
+
+  // ── FAILED CASES ───────────────────────────────────────────────────────────
+  if(failedCases.length>0){
+    doc+=SEP+"\n";
+    doc+="FAILED TEST CASES ("+failedCases.length+")\n";
+    doc+=SEP+"\n\n";
+    failedCases.forEach((tc,idx)=>{
+      const isKnownBug=!!tc.knownBug;
+      doc+="  "+(idx+1)+". ["+tc.sectionName+"] "+tc.id+" - "+tc.scenario+"\n";
+      if(isKnownBug) doc+="     Known Bug  : "+tc.knownBug+"\n";
+      if(S.notes[tc.id]) doc+="     Deviation  : "+S.notes[tc.id]+"\n";
+      doc+="     Expected   : "+tc.expected+"\n";
+
+      // Webhook payload if present
+      if(S.webhookPayloads[tc.id]&&S.webhookPayloads[tc.id].trim()){
+        doc+="     Webhook received:\n";
+        try{
+          const jsons=extractAllJsons(S.webhookPayloads[tc.id]);
+          if(jsons.length>0){
+            const pretty=JSON.stringify(jsons[0],null,2);
+            pretty.split("\n").forEach(line=>{doc+="       "+line+"\n";});
+          }
+        }catch(e){doc+="       "+S.webhookPayloads[tc.id]+"\n";}
+      }
+      doc+="\n";
+    });
+
+    // Separate known bugs from new issues
+    const newIssues=failedCases.filter(c=>!c.knownBug);
+    const knownBugs=failedCases.filter(c=>c.knownBug);
+    if(knownBugs.length>0){
+      doc+="  Known bugs in above failures:\n";
+      knownBugs.forEach(c=>{doc+="    - "+c.id+": "+c.knownBug+"\n";});
+      doc+="\n";
+    }
+    if(newIssues.length>0){
+      doc+="  NEW ISSUES (not previously known):\n";
+      newIssues.forEach(c=>{doc+="    ! "+c.id+" - "+c.scenario+"\n";});
+      doc+="\n";
+    }
+  }
+
+  // ── BLOCKED CASES ──────────────────────────────────────────────────────────
+  if(blockedCases.length>0){
+    doc+=SEP+"\n";
+    doc+="BLOCKED TEST CASES ("+blockedCases.length+")\n";
+    doc+=SEP+"\n\n";
+    blockedCases.forEach((tc,idx)=>{
+      doc+="  "+(idx+1)+". ["+tc.sectionName+"] "+tc.id+" - "+tc.scenario+"\n";
+      if(S.notes[tc.id]) doc+="     Reason     : "+S.notes[tc.id]+"\n";
+      doc+="\n";
+    });
+  }
+
+  // ── WEBHOOK VALIDATION FAILURES ────────────────────────────────────────────
+  if(webhookFailCases.length>0){
+    doc+=SEP+"\n";
+    doc+="WEBHOOK VALIDATION FAILURES ("+webhookFailCases.length+")\n";
+    doc+=SEP+"\n\n";
+    webhookFailCases.forEach((tc,idx)=>{
+      const wv=S.webhookValidations[tc.id];
+      const wFails=wv.results.filter(r=>r.status==="fail");
+      const wPass=wv.results.filter(r=>r.status==="pass");
+      const testResult=S.results[tc.id]||"pending";
+      doc+="  "+(idx+1)+". ["+tc.sectionName+"] "+tc.id+" - "+tc.scenario+"\n";
+      doc+="     Test Result    : "+testResult.toUpperCase()+"\n";
+      doc+="     Schema         : "+(wv.schema||"")+"\n";
+      doc+="     Checks Passed  : "+wPass.length+"\n";
+      doc+="     Checks Failed  : "+wFails.length+"\n\n";
+      doc+="     Mismatches:\n";
+      wFails.forEach(f=>{
+        doc+="       x "+f.label+"\n";
+        if(f.msg) doc+="         Expected vs Received: "+f.msg+"\n";
+      });
+      doc+="\n";
+      // Full field comparison
+      if(wv._parsed&&wv._checks){
+        doc+="     Field Comparison:\n";
+        doc+="     "+("Field").padEnd(32)+("Expected").padEnd(25)+("Received").padEnd(25)+"Status\n";
+        doc+="     "+"-".repeat(86)+"\n";
+        const allFields=Object.keys(wv._parsed);
+        const schema=WEBHOOK_SCHEMAS[wv._schemaKey];
+        if(schema) schema.required.forEach(f=>{if(!allFields.includes(f))allFields.push(f);});
+        allFields.forEach(field=>{
+          const receivedRaw=wv._parsed[field];
+          const received=receivedRaw===undefined?"(missing)":receivedRaw===""?"(empty)":String(receivedRaw);
+          const chk=wv._checks.find(c=>c.field===field);
+          let expected="-";
+          let chkStatus=" ";
+          if(chk){
+            expected=chk.notEmpty?"(non-empty)":chk.contains?"contains:"+chk.value:chk.value===""?"(empty)":chk.value;
+            chkStatus=chk.status==="pass"?"v":"x";
+          }
+          const marker=chkStatus==="x"?" <-- MISMATCH":"";
+          doc+="     "+field.padEnd(32)+expected.padEnd(25)+received.padEnd(25)+chkStatus+marker+"\n";
+        });
+        doc+="\n";
+      }
+    });
+  }
+
+  // ── WEBHOOK NOT CAPTURED ───────────────────────────────────────────────────
+  if(webhookMissingCases.length>0){
+    doc+=SEP+"\n";
+    doc+="WEBHOOK NOT CAPTURED ("+webhookMissingCases.length+")\n";
+    doc+="These cases were run but no webhook payload was pasted\n";
+    doc+=SEP+"\n\n";
+    webhookMissingCases.forEach((tc,idx)=>{
+      const result=S.results[tc.id]||"pending";
+      doc+="  "+(idx+1)+". ["+tc.sectionName+"] "+tc.id+" - "+tc.scenario+" ["+result.toUpperCase()+"]\n";
+    });
+    doc+="\n";
+  }
+
+  // ── PENDING ────────────────────────────────────────────────────────────────
+  if(pendingCases.length>0){
+    doc+=SEP+"\n";
+    doc+="PENDING - NOT YET RUN ("+pendingCases.length+")\n";
+    doc+=SEP+"\n\n";
+    // Group by section
+    TEST_DATA.sections.forEach(sec=>{
+      const pending=pendingCases.filter(c=>c.sectionId===sec.id);
+      if(pending.length>0){
+        doc+="  "+sec.name+": "+pending.length+" pending\n";
+        pending.forEach(c=>{doc+="    - "+c.id+": "+c.scenario+"\n";});
+        doc+="\n";
+      }
+    });
+  }
+
+  // ── FOOTER ─────────────────────────────────────────────────────────────────
+  doc+=HDR+"\n";
+  const deployStatus = failedCases.filter(c=>!c.knownBug).some(c=>["paynow","egiro","mpgs"].includes(c.sectionId))
+    ? "BLOCKED - DO NOT DEPLOY"
+    : failedCases.filter(c=>!c.knownBug).length>0||blockedCases.length>0||webhookFailCases.length>0
+    ? "CAUTION - ISSUES FOUND - REVIEW BEFORE DEPLOYING"
+    : totalIssues===0 && pendingCases.length===0
+    ? "READY FOR DEPLOYMENT"
+    : "INCOMPLETE RUN - PENDING CASES REMAIN";
+  doc+="DEPLOYMENT RECOMMENDATION: "+deployStatus+"\n";
+  doc+=HDR+"\n";
+
+  if(totalIssues===0&&pendingCases.length===0){
+    alert("No issues found! All cases passed and all webhooks validated. Ready to deploy.");
+    return;
+  }
+
+  const blob=new Blob([doc],{type:"text/plain"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="NTUC_Issues_Report_"+env+"_"+dateStr+".txt";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function downloadFullAssessment(){
+  const env=document.getElementById("env-select")?.value||"Dev";
+  const tester=document.getElementById("tester-input")?.value||"-";
+  const now=new Date();
+  const dateStr=now.toISOString().split("T")[0];
+  const timeStr=now.toLocaleTimeString("en-SG",{hour:"2-digit",minute:"2-digit"});
+  const {report,status}=generateReport();
+  const SEP="-".repeat(65);
+  const HDR="=".repeat(65);
+
+  let doc="";
+  doc+=HDR+"\n";
+  doc+="  NTUC REGRESSION FULL ASSESSMENT REPORT\n";
+  doc+=HDR+"\n\n";
+  doc+="Date        : "+dateStr+" "+timeStr+"\n";
+  doc+="Tester      : "+tester+"\n";
+  doc+="Environment : "+env+"\n";
+  doc+="Overall     : "+status+"\n\n";
+
+  doc+=SEP+"\n";
+  doc+="SECTION SUMMARY\n";
+  doc+=SEP+"\n\n";
+  TEST_DATA.sections.forEach(sec=>{
+    const ss=getSectionStats(sec.id);
+    doc+=sec.name.padEnd(20)+": "+ss.pass+" Pass  "+ss.fail+" Fail  "+ss.blocked+" Blocked  "+ss.skip+" Skip  ("+ss.done+"/"+ss.total+")\n";
+  });
+  doc+="\n";
+
+  doc+=SEP+"\n";
+  doc+="FULL TEST CASE DETAIL\n";
+  doc+=SEP+"\n\n";
+
+  TEST_DATA.sections.forEach(sec=>{
+    doc+="[ "+sec.name.toUpperCase()+" ]\n\n";
+    sec.cases.forEach(tc=>{
+      const result=S.results[tc.id]||"pending";
+      const icon=result==="pass"?"[PASS]":result==="fail"?"[FAIL]":result==="blocked"?"[BLOCKED]":result==="skip"?"[SKIP]":"[PENDING]";
+      doc+="  "+icon+" "+tc.id+" - "+tc.scenario+"\n";
+      if(S.notes[tc.id]) doc+="  Notes     : "+S.notes[tc.id]+"\n";
+
+      if(S.webhookPayloads[tc.id]&&S.webhookPayloads[tc.id].trim()){
+        doc+="  Webhook received:\n";
+        try{
+          const jsons=extractAllJsons(S.webhookPayloads[tc.id]);
+          if(jsons.length>0){
+            const pretty=JSON.stringify(jsons[0],null,2);
+            pretty.split("\n").forEach(line=>{doc+="    "+line+"\n";});
+          } else {
+            doc+="    "+S.webhookPayloads[tc.id]+"\n";
+          }
+        }catch(err){doc+="    "+S.webhookPayloads[tc.id]+"\n";}
+
+        if(S.webhookValidations[tc.id]&&S.webhookValidations[tc.id].results){
+          const wv=S.webhookValidations[tc.id];
+          const wFails=wv.results.filter(r=>r.status==="fail");
+          const wPass=wv.results.filter(r=>r.status==="pass");
+          doc+="  Webhook Validation: "+(wv.schema||"")+"\n";
+          doc+="    Passed : "+wPass.length+" | Failed : "+wFails.length+"\n";
+          if(wFails.length>0){
+            doc+="    Mismatches:\n";
+            wFails.forEach(f=>{doc+="      x "+f.label+(f.msg?" - "+f.msg:"")+"\n";});
+          }
+          if(wv._parsed&&wv._checks){
+            doc+="    Field Comparison:\n";
+            doc+="    "+("Field").padEnd(32)+("Expected").padEnd(25)+("Received").padEnd(25)+"Status\n";
+            doc+="    "+"-".repeat(86)+"\n";
+            const allFields=Object.keys(wv._parsed);
+            const schema=WEBHOOK_SCHEMAS[wv._schemaKey];
+            if(schema) schema.required.forEach(f=>{if(!allFields.includes(f))allFields.push(f);});
+            allFields.forEach(field=>{
+              const receivedRaw=wv._parsed[field];
+              const received=receivedRaw===undefined?"(missing)":receivedRaw===""?"(empty)":String(receivedRaw);
+              const chk=wv._checks.find(c=>c.field===field);
+              let expected="-";
+              let chkStatus=" ";
+              if(chk){
+                expected=chk.notEmpty?"(non-empty)":chk.contains?"contains:"+chk.value:chk.value===""?"(empty)":chk.value;
+                chkStatus=chk.status==="pass"?"v":"x";
+              }
+              doc+="    "+field.padEnd(32)+expected.padEnd(25)+received.padEnd(25)+chkStatus+"\n";
+            });
+          }
+        }
+      }
+      doc+="\n";
+    });
+    doc+="\n";
+  });
+
+  doc+=SEP+"\n";
+  doc+="DEPLOYMENT SUMMARY\n";
+  doc+=SEP+"\n\n";
+  doc+=report;
+
+  const blob=new Blob([doc],{type:"text/plain"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="NTUC_Full_Assessment_"+env+"_"+dateStr+".txt";
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function downloadReport(){
@@ -1116,6 +1764,7 @@ function confirmNewRun() {
       notes: {},
       expanded: {},
       checks: {},
+      webhookPayloads: {},
       valPayload: "",
       valSchema: "paynow_success",
       valResults: null
